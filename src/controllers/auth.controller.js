@@ -1,5 +1,10 @@
 const { RegisterService, LoginService } = require("../services/auth.service");
 
+/**
+ * @route POST /auth/register
+ * @desc Register a new user
+ * @access Public
+ */
 const Register = async (req, res) => {
   try {
     const result = await RegisterService(req.body);
@@ -14,6 +19,11 @@ const Register = async (req, res) => {
     return res.status(500).json({ error: "Server error" });
   }
 };
+/**
+ * @route POST /api/auth/login
+ * @desc Login user and set JWT cookie
+ * @access Public
+ */
 const Login = async (req, res) => {
   try {
     const result = await LoginService(req.body);
@@ -37,9 +47,18 @@ const Login = async (req, res) => {
     return res.status(500).json({ error: "Server error" });
   }
 };
-
+/**
+ * @route POST /api/auth/logout
+ * @desc Logout user (clear cookie)
+ * @access Private
+ */
 const Logout = async (req, res) => {};
 
+/**
+ * @route GET /api/auth/me
+ * @desc Get current authenticated user
+ * @access Private
+ */
 const authMe = async (req, res) => {
   try {
     return res.status(200).json({
