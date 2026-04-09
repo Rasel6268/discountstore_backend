@@ -40,8 +40,22 @@ const Login = async (req, res) => {
 
 const Logout = async (req, res) => {};
 
+const authMe = async (req, res) => {
+  try {
+    return res.status(200).json({
+      message: "Authenticated user",
+      user: req.user,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Server error" });
+  }
+};
+
+
 module.exports = {
   Register,
   Login,
   Logout,
+  authMe
 };
