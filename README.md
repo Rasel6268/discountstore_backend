@@ -11,7 +11,8 @@ A modern, scalable eCommerce platform built with Node.js and MongoDB, featuring 
 3. [Technology Stack](#technology-stack)
 4. [Installation](#installation)
 5. [API Documentation](#api-documentation)
-6. [Database Models](#database-models)
+6. [Controller Documentation](#controller-documentation)
+7. [Database Models](#database-models)
 
 ---
 
@@ -772,7 +773,55 @@ Authorization: Bearer <JWT_TOKEN>
 
 ---
 
-## 🔒 Security Best Practices
+## � Controller Documentation
+
+Each controller module has its own detailed README file with comprehensive API documentation, examples, and implementation details.
+
+### Available Controller Documentation
+
+| Controller | Description | Documentation |
+|-----------|-------------|-----------------|
+| **Auth Controller** | JWT authentication, registration, login, logout | [View Docs](./src/controllers/README.md) |
+| **User Controller** | User profile management, orders, cart, wishlist | Coming Soon |
+| **Product Controller** | Product CRUD, search, filtering | Coming Soon |
+| **Order Controller** | Order creation, status tracking, management | Coming Soon |
+| **Cart Controller** | Add/remove items, quantity management | Coming Soon |
+| **Payment Controller** | Payment processing, transaction handling | Coming Soon |
+
+### Controller README Structure
+
+Each controller README includes:
+
+✅ **Endpoint Documentation**
+- Route and HTTP method
+- Description and access level
+- Request body examples
+- Success/error responses
+- Implementation details
+
+✅ **Code Examples**
+- Frontend integration examples
+- cURL command examples
+- JavaScript/Fetch examples
+
+✅ **Security Information**
+- Authentication requirements
+- Authorization rules
+- Security best practices
+
+✅ **Related Services & Models**
+- Service layer dependencies
+- Database models used
+- Middleware applied
+
+✅ **Testing Examples**
+- cURL commands for testing
+- Request/response samples
+- Error scenario testing
+
+---
+
+## �🔒 Security Best Practices
 
 - ✅ Always use HTTPS in production
 - ✅ Implement rate limiting on API endpoints

@@ -5,7 +5,8 @@ const { RegisterService, LoginService } = require("../services/auth.service");
  * @desc Register a new user
  * @access Public
  */
-const Register = async (req, res) => {
+const register = async (req, res) => {
+  
   try {
     const result = await RegisterService(req.body);
 
@@ -24,7 +25,7 @@ const Register = async (req, res) => {
  * @desc Login user and set JWT cookie
  * @access Public
  */
-const Login = async (req, res) => {
+const login = async (req, res) => {
   try {
     const result = await LoginService(req.body);
 
@@ -52,7 +53,7 @@ const Login = async (req, res) => {
  * @desc Logout user (clear cookie)
  * @access Private
  */
-const Logout = async (req, res) => {};
+const logout = async (req, res) => {};
 
 /**
  * @route GET /api/auth/me
@@ -73,8 +74,8 @@ const authMe = async (req, res) => {
 
 
 module.exports = {
-  Register,
-  Login,
-  Logout,
+  register,
+  login,
+  logout,
   authMe
 };
