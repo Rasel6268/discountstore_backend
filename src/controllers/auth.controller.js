@@ -7,10 +7,15 @@ const { RegisterService, LoginService } = require("../services/auth.service");
  */
 const register = async (req, res) => {
   
+  
   try {
     const result = await RegisterService(req.body);
+   
 
     if (result.error) {
+      if (result.type === "DUPLICATE_ERROR") {
+        return res.status(409).json(result);
+      }
       return res.status(400).json(result);
     }
 
