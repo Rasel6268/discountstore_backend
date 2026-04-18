@@ -24,7 +24,7 @@ const RegisterService = async (body) => {
   const userObj = savedUser.toObject();
   delete userObj.password;
 
-  return { message: "User registered successfully", user: userObj };
+  return { message: "User registered successfully", user: userObj ,success: true,status: 201};
 };
 const LoginService = async (body) => {
   const { email, password } = body;
