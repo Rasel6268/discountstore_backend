@@ -6,10 +6,18 @@ const { RegisterService, LoginService } = require("../services/auth.service");
  * @access Public
  */
 const register = async (req, res) => {
+  const { name, email, password } = req.body;
+
+  if (!name || !email || !password) {
+    return res.status(400).json({ error: "All fields are required" });
+  }
+  
   
   
   try {
     const result = await RegisterService(req.body);
+    
+
    
 
     if (result.error) {
@@ -58,7 +66,20 @@ const login = async (req, res) => {
  * @desc Logout user (clear cookie)
  * @access Private
  */
-const logout = async (req, res) => {};
+const logout = async (req, res) => {
+  try {
+    
+    res.clearCookie('token', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+    });
+    return res.status(200).json({ message: "Logout successful",success:true,status:200 });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Server error" });
+  }
+};
 
 /**
  * @route GET /api/auth/me

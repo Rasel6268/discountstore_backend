@@ -7,13 +7,12 @@ const userSchema = new mongoose.Schema({
     required: true,
     trim: true,
   },
-  email: {
-    type: String,
-    required: true,
-    unique: true,
-    lowercase: true, 
-    trim: true,
-  },
+ email: {
+  type: String,
+  required: true,
+  unique: true,
+  index: true,
+},
   image: {
     type: String,
     default: '',
@@ -27,10 +26,27 @@ const userSchema = new mongoose.Schema({
     enum: ['user', 'admin'],
     default: 'user',
   },
-  address: {
+  
+  phone: {
     type: String,
     default: '',
-    trim: true,
+  },
+  address: {
+    street: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    city: {
+  type: String,
+  default: '',
+  trim: true,
+},
+    postalCode: {
+      type: String,
+      default: '',
+      trim: true,
+    }
   },
   resetPasswordToken: String,
   resetPasswordExpire: Date,

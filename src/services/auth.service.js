@@ -4,6 +4,7 @@ const jwt = require("jsonwebtoken");
 const cookies = require("cookie-parser");
 
 const RegisterService = async (body) => {
+
   
   const { name, email, password } = body;
 
@@ -12,15 +13,18 @@ const RegisterService = async (body) => {
   }
 
   const existingUser = await User.findOne({ email });
+  
   if (existingUser) {
      return { success: false, message: "Email already registered", type: "DUPLICATE_ERROR", status: 409 };
   }
  
 
   const userData = new User({ name, email, password });
+ 
    
 
   const savedUser = await userData.save();
+   console.log(savedUser)
   const userObj = savedUser.toObject();
   delete userObj.password;
 
