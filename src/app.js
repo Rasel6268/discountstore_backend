@@ -4,12 +4,15 @@ const connectDb = require('./config/db')
 const cookieParser = require('cookie-parser')
 const app = express()
 
-//middleware
+const allowedOrigins = [
+  'http://localhost:3000',
+  'https://discount-mart-system-frontend.vercel.app'
+];
+
 app.use(cors({
-    origin: 'https://discount-mart-system-frontend.vercel.app',
-    credentials: true,
-    
-}))
+  origin: allowedOrigins,
+  credentials: true
+}));
 app.use(express.json())
 app.use(cookieParser());
 
