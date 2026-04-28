@@ -6,7 +6,7 @@ const app = express()
 
 //middleware
 app.use(cors({
-    origin: 'http://localhost:3000',
+    origin: 'https://discount-mart-system-frontend.vercel.app',
     credentials: true,
     
 }))
