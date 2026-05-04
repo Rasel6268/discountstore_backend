@@ -28,5 +28,6 @@ app.get('/',(req,res) =>{
 //routers
 app.use('/auth', require('./routers/auth.route'))
 app.use('/categories', categoryRoutes);
+app.use('/brands',brandRoutes)
 
 module.exports = app
