@@ -69,14 +69,33 @@ const getBrandByIdServices = async (id) => {
         data: null,
       };
     }
-     return {
+    return {
       success: true,
       data: brand,
       statusCode: 200,
     };
   } catch (error) {}
 };
-const updateBrand = (id) => {};
+const updateBrand = async (id, data) => {
+  try {
+    const updatedBrand = await Brand.findByIdAndUpdate(id, data, {
+      new: true,
+      runValidators: true,
+    });
+
+    return {
+      success: true,
+      message: "Brand updated successfully",
+      data: updatedBrand,
+      statusCode: 200,
+    };
+  } catch (error) {
+    return {
+        success: false,
+        error: error.message || "Internal server Error"
+    }
+  }
+};
 const deleteBrand = (id) => {};
 
 module.exports = {
@@ -84,4 +103,5 @@ module.exports = {
   getAllBrandServices,
   getBrandByIdServices,
   deleteBrand,
+  updateBrand,
 };
