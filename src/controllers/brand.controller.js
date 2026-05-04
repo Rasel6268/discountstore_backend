@@ -1,9 +1,13 @@
-const { createBrandService } = require("../services/brand.service")
+const {
+  createBrandService,
+  getAllBrandServices,
+  getBrandByIdServices,
+} = require("../services/brand.service");
 
 const createBrandController = async (req, res) => {
   try {
     const result = await createBrandService(req.body);
-    
+
     return res.status(result.statusCode).json(result);
   } catch (error) {
     console.error("Controller error:", error);
@@ -16,24 +20,38 @@ const createBrandController = async (req, res) => {
   }
 };
 
-const allBrandController = (req,res) => {
+const allBrandController = async (req, res) => {
+  try {
+    const result = await getAllBrandServices();
+    return res.status(result.statusCode).json(result);
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      error: error.message || "Internal server error",
+    });
+  }
+};
+const getBrandByIdController = async (req, res) => {
+  try {
+    const { id } = req.params;
 
-}
-const getBrandByIdController = (req,res) => {
+    const result = await getBrandByIdServices(id);
 
-}
-const updateBrandController = (req,res) => {
-
-}
-const deleteBrand = (req,res) => {
-
-}
-
+    return res.status(result.statusCode).json(result);
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal Server Error",
+    });
+  }
+};
+const updateBrandController = (req, res) => {};
+const deleteBrand = (req, res) => {};
 
 module.exports = {
-    createBrandController,
-    allBrandController,
-    getBrandByIdController,
-    updateBrandController,
-    deleteBrand
-}
+  createBrandController,
+  allBrandController,
+  getBrandByIdController,
+  updateBrandController,
+  deleteBrand,
+};
