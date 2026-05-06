@@ -40,7 +40,6 @@ const createBrandService = async (body) => {
     };
   }
 };
-
 const getAllBrandServices = async () => {
   try {
     const brands = await Brand.find().sort({ name: 1 });
@@ -96,7 +95,22 @@ const updateBrand = async (id, data) => {
     }
   }
 };
-const deleteBrand = (id) => {};
+const deleteBrand = async(id) => {
+   try {
+     const deletedBrand = await Brand.findByIdAndDelete(id)
+    return {
+      success: true,
+      message: "Brand deleted successfully",
+      data: deletedBrand,
+      statusCode: 200,
+    };
+   } catch (error) {
+    return res.status(500).json({
+        success: false,
+        error: error.message || "Internal server Error"
+    })
+   }
+};
 
 module.exports = {
   createBrandService,

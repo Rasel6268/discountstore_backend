@@ -5,6 +5,8 @@ const cookieParser = require('cookie-parser')
 const app = express()
 const categoryRoutes = require('./routers/category.route')
 const brandRoutes = require('./routers/brand.route')
+const productRoute = require('./routers/product.route')
+const coupenRoutes= require('./routers/coupon.routes')
 
 const allowedOrigins = [
   'http://localhost:3000',
@@ -28,6 +30,8 @@ app.get('/',(req,res) =>{
 //routers
 app.use('/auth', require('./routers/auth.route'))
 app.use('/categories', categoryRoutes);
-app.use('/brands',brandRoutes)
+app.use('/brands',brandRoutes);
+app.use('/products',productRoute)
+app.use("/coupons",coupenRoutes)
 
 module.exports = app

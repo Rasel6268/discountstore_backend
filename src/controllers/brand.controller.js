@@ -3,6 +3,7 @@ const {
   getAllBrandServices,
   getBrandByIdServices,
   updateBrand,
+  deleteBrand,
 } = require("../services/brand.service");
 
 const createBrandController = async (req, res) => {
@@ -46,25 +47,37 @@ const getBrandByIdController = async (req, res) => {
     });
   }
 };
-const updateBrandController = async(req, res) => {
+const updateBrandController = async (req, res) => {
   try {
     const id = req.params.id;
     const data = req.body;
-    const result = await updateBrand(id,data)
-    return res.status(200).json(result)
+    const result = await updateBrand(id, data);
+    return res.status(200).json(result);
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      error: error.message || "Internal server Error",
+    });
+  }
+};
+const deleteBrandController = async (req, res) => {
+  try {
+    const id = req.params.id;
+    const result = await deleteBrand(id);
+    return res.status(200).json(result);
   } catch (error) {
     return res.status(500).json({
         success: false,
-        error: error.message || "Internal server Error"
+
+        error: error.message || 'Internal server Error'
     })
   }
 };
-const deleteBrand = (req, res) => {};
 
 module.exports = {
   createBrandController,
   allBrandController,
   getBrandByIdController,
   updateBrandController,
-  deleteBrand,
+  deleteBrandController,
 };
