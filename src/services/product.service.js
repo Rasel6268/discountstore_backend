@@ -135,7 +135,35 @@ const getAllProductSRV = async (filters = {}) => {
   }
 };
 
-const getProductByIdSRV = async () => {};
+const getProductByIdSRV = async (id) => {
+  try {
+    const product = await Product.findById(id)
+      .populate("category", "name slug")
+      .populate("brand", "name slug");
+
+    if (!product) {
+      return {
+        success: false,
+        error: "Product not found",
+        statusCode: 404,
+        data: null,
+      };
+    }
+
+    return {
+      success: true,
+      data: product,
+      statusCode: 200,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message,
+      statusCode: 500,
+      data: null,
+    };
+  }
+};
 const updateProductSRV = async () => {};
 const deleteProductSRV = async () => {};
 module.exports = {

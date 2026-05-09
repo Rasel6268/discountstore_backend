@@ -1,4 +1,4 @@
-const { createProductSRV, getAllProductSRV } = require("../services/product.service");
+const { createProductSRV, getAllProductSRV, getProductByIdSRV } = require("../services/product.service");
 
 const createProduct = async (req, res) => {
     
@@ -32,7 +32,19 @@ const getAllProduct = async (req, res) => {
     });
   }
 };
-const getProductById = async (req, res) => {};
+const getProductById = async (req, res) => {
+   try {
+    const { id } = req.params;
+    const result = await getProductByIdSRV(id);
+    return res.status(result.statusCode).json(result);
+   } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal server error",
+      data: null
+    });
+   }
+};
 const updateProduct = async (req, res) => {};
 const deleteProduct = async () => {};
 
