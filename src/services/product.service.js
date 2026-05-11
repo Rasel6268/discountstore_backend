@@ -165,7 +165,34 @@ const getProductByIdSRV = async (id) => {
   }
 };
 const updateProductSRV = async () => {};
-const deleteProductSRV = async () => {};
+const deleteProductSRV = async (id) => {
+  try {
+    const product = await Product.findByIdAndDelete(id);
+
+    if (!product) {
+      return {
+        success: false,
+        error: "Product not found",
+        statusCode: 404,
+        data: null,
+      };
+    }
+
+    return {
+      success: true,
+      message: "Product deleted successfully",
+      data: product,
+      statusCode: 200,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message,
+      statusCode: 500,
+      data: null,
+    };
+  }
+};
 module.exports = {
   createProductSRV,
   getAllProductSRV,
