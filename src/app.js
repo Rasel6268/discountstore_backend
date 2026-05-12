@@ -10,7 +10,7 @@ const coupenRoutes= require('./routers/coupon.routes')
 
 const allowedOrigins = [
   'http://localhost:3000',
-  'https://discount-mart-system-frontend.vercel.app'
+  'https://discount-mart-system-frontend.vercel.app',
 ];
 
 app.use(cors({
