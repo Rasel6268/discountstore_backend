@@ -1,6 +1,40 @@
 const mongoose = require("mongoose");
 const slugify = require("../utils/slugify");
 
+// Size Schema for individual size options
+const sizeSchema = new mongoose.Schema({
+  name: {
+    type: String,
+    required: true,
+    trim: true,
+  },
+  // Size type: "men", "women", "unisex", "kids"
+  type: {
+    type: String,
+    enum: ["men", "women", "unisex", "kids"],
+    default: "unisex",
+  },
+  quantity: {
+    type: Number,
+    required: true,
+    min: 0,
+    default: 0,
+  },
+  extraPrice: {
+    type: Number,
+    default: 0,
+    min: 0,
+  },
+  sku: {
+    type: String,
+    trim: true,
+  },
+  isActive: {
+    type: Boolean,
+    default: true,
+  },
+});
+
 const productSchema = new mongoose.Schema(
   {
     // ================= BASIC INFO =================
@@ -88,11 +122,21 @@ const productSchema = new mongoose.Schema(
       unique: true,
     },
 
+    // Base quantity (when not using sizes)
     quantity: {
       type: Number,
       default: 0,
       min: 0,
     },
+
+    // Enable size-based inventory
+    hasSizes: {
+      type: Boolean,
+      default: false,
+    },
+
+    // Size options array
+    sizes: [sizeSchema],
 
     lowStockThreshold: {
       type: Number,
@@ -147,6 +191,14 @@ const productSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    isPremium : {
+      type: Boolean,
+      default: false,
+    },
+    isBest: {
+      type: Boolean,
+      default: false,
+    },
 
     isPublished: {
       type: Boolean,
@@ -185,7 +237,37 @@ const productSchema = new mongoose.Schema(
     toObject: { virtuals: true },
   }
 );
-productSchema.pre("save", async function () {
+
+// Virtual for total quantity from sizes
+productSchema.virtual('totalQuantity').get(function() {
+  if (this.hasSizes && this.sizes.length > 0) {
+    return this.sizes.reduce((total, size) => total + size.quantity, 0);
+  }
+  return this.quantity;
+});
+
+// Virtual for available sizes (grouped by type)
+productSchema.virtual('availableSizesByType').get(function() {
+  if (!this.hasSizes) return null;
+  
+  const grouped = {
+    men: [],
+    women: [],
+    unisex: [],
+    kids: []
+  };
+  
+  this.sizes.forEach(size => {
+    if (size.isActive && size.quantity > 0) {
+      grouped[size.type].push(size);
+    }
+  });
+  
+  return grouped;
+});
+
+// Pre-save middleware
+productSchema.pre("save", async function() {
   // ================= SLUG =================
   if (this.isModified("name")) {
     let baseSlug = slugify(this.name);
@@ -236,6 +318,11 @@ productSchema.pre("save", async function () {
     if (!hasPrimary) {
       this.images[0].isPrimary = true;
     }
+  }
+
+  // ================= UPDATE BASE QUANTITY FROM SIZES =================
+  if (this.hasSizes && this.sizes.length > 0) {
+    this.quantity = this.sizes.reduce((total, size) => total + size.quantity, 0);
   }
 });
 

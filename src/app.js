@@ -33,5 +33,6 @@ app.use('/categories', categoryRoutes);
 app.use('/brands',brandRoutes);
 app.use('/products',productRoute)
 app.use("/coupons",coupenRoutes)
+app.use("/orders",require("./routers/order.route"))
 
 module.exports = app
