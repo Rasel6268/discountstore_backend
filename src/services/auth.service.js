@@ -3,7 +3,7 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const cookies = require("cookie-parser");
 
-const register = async (req, res) => {
+const RegisterService = async (req, res) => {
   const { name, email, password } = req.body;
 
   if (!name || !email || !password) {
@@ -60,7 +60,23 @@ const LoginService = async (body) => {
     token,
   };
 };
-const authMeService = 
+const authMeService = async (token) => {
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    const user = await User.findById(decoded.id).select("-password");
+
+    if (!user) {
+      return { error: "User not found" };
+    }
+
+    return {
+      user,
+    };
+  } catch (error) {
+    return { error: "Invalid or expired token" };
+  }
+};
 const profileService = async (updateData) => {
   const { email } = updateData;
   try {
@@ -77,4 +93,5 @@ module.exports = {
   LoginService,
   LogoutService,
   profileService,
+  authMeService
 };
