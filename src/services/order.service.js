@@ -198,7 +198,27 @@ const createOrderSRV = async (orderData) => {
     };
   }
 };
-
+const getAllOrdersSRV = async() => {
+  try {
+    const orders = await Order.find()
+      .sort({ createdAt: -1 })
+      .populate("user.userId", "name email phone")
+      .populate("items.productId", "name images slug brand category");
+    return {
+      success: true,
+      message: "Orders retrieved successfully",
+      data: orders,
+      statusCode: 200,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.message || "Failed to retrieve orders",
+      statusCode: 500,
+      data: null,
+    };
+  }
+}
 const getOrderByIdSRV = async (orderId, userId = null) => {
   try {
     const query = { orderId: orderId };

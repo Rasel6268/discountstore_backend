@@ -5,7 +5,8 @@ const {
   getUserOrdersSRV,
   updateOrderStatusSRV,
   updatePaymentStatusSRV,
-  cancelOrderSRV 
+  cancelOrderSRV,
+  getAllOrdersSRV
 } = require("../services/order.service");
 
 /**
@@ -56,7 +57,21 @@ const getOrderById = async (req, res) => {
     });
   }
 };
-
+const allorder = async (req, res) => {
+  try {
+    const result = await getAllOrdersSRV(); 
+    return res.status(result.statusCode).json({
+        success: result.success,
+        message: result.message,
+        data: result.data
+    });
+    } catch (error) {
+    return res.status(500).json({
+        success: false,     
+        message: error.message || "Internal server error",
+        data: null
+    })}
+}
 /**
  * Get user's orders
  */
