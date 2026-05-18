@@ -1,38 +1,73 @@
-const express = require('express')
-const cors = require('cors')
-const connectDb = require('./config/db')
-const cookieParser = require('cookie-parser')
-const app = express()
-const categoryRoutes = require('./routers/category.route')
-const brandRoutes = require('./routers/brand.route')
-const productRoute = require('./routers/product.route')
-const coupenRoutes= require('./routers/coupon.routes')
+const express = require('express');
+const cors = require('cors');
+const connectDb = require('./config/db');
+const cookieParser = require('cookie-parser');
 
+const app = express();
+
+// =======================
+// DATABASE CONNECTION
+// =======================
+connectDb();
+
+// =======================
+// MIDDLEWARE
+// =======================
+app.use(express.json());
+app.use(cookieParser());
+
+// =======================
+// CORS CONFIG (PRODUCTION SAFE)
+// =======================
 const allowedOrigins = [
   'http://localhost:3000',
   'https://discount-mart-system-frontend.vercel.app',
+  'https://discountstorebd.com',
+  'https://www.discountstorebd.com',
 ];
 
-app.use(cors({
-  origin: allowedOrigins,
-  credentials: true
-}));
-app.use(express.json())
-app.use(cookieParser());
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      // allow Postman / server-to-server requests
+      if (!origin) return callback(null, true);
 
-//connect to database
-connectDb()
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      } else {
+        return callback(new Error('Not allowed by CORS'));
+      }
+    },
+    credentials: true,
+  })
+);
 
-app.get('/',(req,res) =>{
-    res.send('Your server is cooking')
-})
+// =======================
+// TEST ROUTE
+// =======================
+app.get('/', (req, res) => {
+  res.send('🚀 Your server is cooking');
+});
 
-//routers
-app.use('/auth', require('./routers/auth.route'))
-app.use('/categories', categoryRoutes);
-app.use('/brands',brandRoutes);
-app.use('/products',productRoute)
-app.use("/coupons",coupenRoutes)
-app.use("/orders",require("./routers/order.route"))
+// =======================
+// ROUTES
+// =======================
+app.use('/auth', require('./routers/auth.route'));
+app.use('/categories', require('./routers/category.route'));
+app.use('/brands', require('./routers/brand.route'));
+app.use('/products', require('./routers/product.route'));
+app.use('/coupons', require('./routers/coupon.routes'));
+app.use('/orders', require('./routers/order.route'));
 
-module.exports = app
+// =======================
+// ERROR HANDLING
+// =======================
+app.use((err, req, res, next) => {
+  console.error('Server Error:', err.message);
+  res.status(500).json({
+    success: false,
+    message: err.message || 'Internal Server Error',
+  });
+});
+
+module.exports = app;

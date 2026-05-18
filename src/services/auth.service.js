@@ -3,37 +3,28 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const cookies = require("cookie-parser");
 
-const RegisterService = async (body) => {
-  const { name, email, password } = body;
+const register = async (req, res) => {
+  const { name, email, password } = req.body;
 
   if (!name || !email || !password) {
-    return { error: "All fields are required" };
+    return res.status(400).json({ error: "All fields are required" });
   }
 
-  const existingUser = await User.findOne({ email });
+  try {
+    const result = await RegisterService(req.body);
 
-  if (existingUser) {
-    return {
-      success: false,
-      message: "Email already registered",
-      type: "DUPLICATE_ERROR",
-      status: 409,
-    };
+    if (result.error) {
+      if (result.type === "DUPLICATE_ERROR") {
+        return res.status(409).json(result);
+      }
+      return res.status(400).json(result);
+    }
+
+    return res.status(201).json(result);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Server error" });
   }
-
-  const userData = new User({ name, email, password });
-
-  const savedUser = await userData.save();
-  console.log(savedUser);
-  const userObj = savedUser.toObject();
-  delete userObj.password;
-
-  return {
-    message: "User registered successfully",
-    user: userObj,
-    success: true,
-    status: 201,
-  };
 };
 const LoginService = async (body) => {
   const { email, password } = body;
@@ -69,6 +60,7 @@ const LoginService = async (body) => {
     token,
   };
 };
+const authMeService = 
 const profileService = async (updateData) => {
   const { email } = updateData;
   try {

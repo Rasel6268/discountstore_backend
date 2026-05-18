@@ -2,6 +2,7 @@ const {
   RegisterService,
   LoginService,
   profileService,
+  authMeService,
 } = require("../services/auth.service");
 
 /**
@@ -47,10 +48,11 @@ const login = async (req, res) => {
 
     res.cookie("token", result.token, {
       httpOnly: true,
-      secure: true,
-      sameSite: "none",
+      secure: true,        
+      sameSite: "none",    
       maxAge: 24 * 60 * 60 * 1000,
     });
+
     return res.status(200).json({
       message: "Login successful",
       user: result.user,
@@ -69,12 +71,14 @@ const logout = async (req, res) => {
   try {
     res.clearCookie("token", {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
+      secure: true,
+      sameSite: "none",
     });
-    return res
-      .status(200)
-      .json({ message: "Logout successful", success: true, status: 200 });
+
+    return res.status(200).json({
+      message: "Logout successful",
+      success: true,
+    });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: "Server error" });
@@ -88,9 +92,25 @@ const logout = async (req, res) => {
  */
 const authMe = async (req, res) => {
   try {
+    const token = req.cookies?.token;
+
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: "Not authenticated",
+      });
+    }
+
+    const result = await authMeService(token);
+
+    if (result.error) {
+      return res.status(401).json(result);
+    }
+
     return res.status(200).json({
+      success: true,
       message: "Authenticated user",
-      user: req.user,
+      user: result.user,
     });
   } catch (error) {
     console.error(error);
