@@ -19,20 +19,19 @@ const createProduct = async (req, res) => {
     });
   }
 };
+
 const getAllProduct = async (req, res) => {
   try {
+    console.log("📥 Received query params:", req.query);
+    
     const result = await getAllProductSRV(req.query);
 
     return res.status(result.statusCode).json({
       success: result.success,
-      message:
-        result.message ||
-        (result.success
-          ? "Products fetched successfully"
-          : "Failed to fetch products"),
+      message: result.message || (result.success ? "Products fetched successfully" : "Failed to fetch products"),
       data: result.data,
       pagination: result.pagination,
-      count: result.count,
+      count: result.data?.length || 0,
     });
   } catch (error) {
     console.error("Get all products controller error:", error);
@@ -43,6 +42,7 @@ const getAllProduct = async (req, res) => {
     });
   }
 };
+
 const getProductById = async (req, res) => {
   try {
     const { id } = req.params;
@@ -56,7 +56,9 @@ const getProductById = async (req, res) => {
     });
   }
 };
+
 const updateProduct = async (req, res) => {};
+
 const deleteProduct = async (req, res) => {
   try {
     const { id } = req.params;
@@ -70,7 +72,7 @@ const deleteProduct = async (req, res) => {
     });
   }
 };
-// Add size to product
+
 const addSizeToProduct = async (req, res) => {
   try {
     const { id } = req.params;
@@ -84,6 +86,7 @@ const addSizeToProduct = async (req, res) => {
     });
   }
 };
+
 const updateSizeQuantity = async (req, res) => {
   try {
     const { id, sizeName } = req.params;
@@ -98,6 +101,7 @@ const updateSizeQuantity = async (req, res) => {
     });
   }
 };
+
 const removeSizeFromProduct = async (req, res) => {
   try {
     const { id, sizeName } = req.params;
@@ -111,6 +115,7 @@ const removeSizeFromProduct = async (req, res) => {
     });
   }
 };
+
 const getProductSizes = async (req, res) => {
   try {
     const { id } = req.params;
@@ -124,7 +129,6 @@ const getProductSizes = async (req, res) => {
     });
   }
 };
-
 
 module.exports = {
   createProduct,

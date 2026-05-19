@@ -13,7 +13,6 @@ const createProductSRV = async (body) => {
       };
     }
     
-    // Validate sizes if provided
     if (hasSizes && sizes) {
       const sizeValidation = validateSizes(sizes);
       if (!sizeValidation.valid) {
@@ -39,7 +38,6 @@ const createProductSRV = async (body) => {
       };
     }
     
-    // Calculate total quantity from sizes if hasSizes is true
     if (hasSizes && sizes && sizes.length > 0) {
       body.quantity = sizes.reduce((total, size) => total + (size.quantity || 0), 0);
     }
@@ -62,6 +60,7 @@ const createProductSRV = async (body) => {
     };
   }
 };
+
 const getAllProductSRV = async (filters = {}) => {
   try {
     const {
@@ -76,54 +75,94 @@ const getAllProductSRV = async (filters = {}) => {
       sortBy = "createdAt",
       sortOrder = "desc",
       page = 1,
-      limit = 20,
+      limit = 12,
     } = filters;
 
     let query = {};
 
-    // Search
-    if (search) {
-      query.name = { $regex: search, $options: "i" };
+    // Search - search in name, description, and SKU
+    if (search && search.trim()) {
+      query.$or = [
+        { name: { $regex: search, $options: "i" } },
+        { description: { $regex: search, $options: "i" } },
+        { sku: { $regex: search, $options: "i" } }
+      ];
     }
 
-    // Filters
-    if (category) query.category = category;
-    if (brand) query.brand = brand;
-    if (status) query.status = status;
-    if (isFeatured === "true") query.isFeatured = true;
+    // Category filter - handle array of category IDs
+    if (category) {
+      if (typeof category === 'string' && category.includes(',')) {
+        query.category = { $in: category.split(',') };
+      } else if (Array.isArray(category)) {
+        query.category = { $in: category };
+      } else {
+        query.category = category;
+      }
+    }
 
-    // Price filter with discount consideration
+    // Brand filter - handle array of brand IDs
+    if (brand) {
+      if (typeof brand === 'string' && brand.includes(',')) {
+        query.brand = { $in: brand.split(',') };
+      } else if (Array.isArray(brand)) {
+        query.brand = { $in: brand };
+      } else {
+        query.brand = brand;
+      }
+    }
+
+    // Status filter
+    if (status) {
+      query.status = status;
+    }
+
+    // Featured filter
+    if (isFeatured === "true") {
+      query.isFeatured = true;
+    }
+
+    // Price filter
     if (minPrice || maxPrice) {
-      query.$or = [{ regularPrice: {} }, { discountPrice: {} }];
-
+      query.regularPrice = {};
       if (minPrice) {
-        query.$or[0].regularPrice.$gte = parseFloat(minPrice);
-        query.$or[1].discountPrice.$gte = parseFloat(minPrice);
+        query.regularPrice.$gte = parseFloat(minPrice);
       }
       if (maxPrice) {
-        query.$or[0].regularPrice.$lte = parseFloat(maxPrice);
-        query.$or[1].discountPrice.$lte = parseFloat(maxPrice);
+        query.regularPrice.$lte = parseFloat(maxPrice);
       }
     }
 
     // On sale filter
     if (isOnSale === "true") {
-      const now = new Date();
-      query.discountPrice = { $ne: null, $lt: "$regularPrice" };
-      query.$or = [
-        { discountStartDate: { $lte: now } },
-        { discountStartDate: null },
-      ];
-      query.$or = [
-        { discountEndDate: { $gte: now } },
-        { discountEndDate: null },
-      ];
+      query.discountPrice = { $ne: null, $gt: 0 };
     }
 
     // Pagination
-    const skip = (page - 1) * limit;
-    const sort = {};
-    sort[sortBy] = sortOrder === "desc" ? -1 : 1;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    
+    // Sorting
+    let sort = {};
+    switch(sortBy) {
+      case 'price_asc':
+        sort.regularPrice = 1;
+        break;
+      case 'price_desc':
+        sort.regularPrice = -1;
+        break;
+      case 'newest':
+        sort.createdAt = -1;
+        break;
+      case 'rating_desc':
+        sort.averageRating = -1;
+        break;
+      case 'featured':
+        sort.isFeatured = -1;
+        sort.createdAt = -1;
+        break;
+      default:
+        sort[sortBy] = sortOrder === "desc" ? -1 : 1;
+    }
+
 
     const [products, total] = await Promise.all([
       Product.find(query)
@@ -142,7 +181,7 @@ const getAllProductSRV = async (filters = {}) => {
         total,
         page: parseInt(page),
         limit: parseInt(limit),
-        pages: Math.ceil(total / limit),
+        pages: Math.ceil(total / parseInt(limit)),
       },
       statusCode: 200,
     };
@@ -186,7 +225,9 @@ const getProductByIdSRV = async (id) => {
     };
   }
 };
+
 const updateProductSRV = async () => {};
+
 const deleteProductSRV = async (id) => {
   try {
     const product = await Product.findByIdAndDelete(id);
@@ -215,23 +256,21 @@ const deleteProductSRV = async (id) => {
     };
   }
 };
+
 const validateSizes = (sizes) => {
   if (!sizes || !Array.isArray(sizes)) return { valid: true };
   
   const sizeNames = new Set();
   for (const size of sizes) {
-    // Check for duplicate size names
     if (sizeNames.has(size.name)) {
       return { valid: false, error: `Duplicate size name: ${size.name}` };
     }
     sizeNames.add(size.name);
     
-    // Validate quantity
     if (size.quantity < 0) {
       return { valid: false, error: `Quantity cannot be negative for size: ${size.name}` };
     }
     
-    // Validate extra price
     if (size.extraPrice < 0) {
       return { valid: false, error: `Extra price cannot be negative for size: ${size.name}` };
     }
@@ -239,6 +278,7 @@ const validateSizes = (sizes) => {
   
   return { valid: true };
 };
+
 const addSizeToProductSRV = async (productId, sizeData) => {
   try {
     const product = await Product.findById(productId);
@@ -251,7 +291,6 @@ const addSizeToProductSRV = async (productId, sizeData) => {
       };
     }
     
-    // Check if size already exists
     const sizeExists = product.sizes.some(s => s.name === sizeData.name);
     if (sizeExists) {
       return {
@@ -262,15 +301,12 @@ const addSizeToProductSRV = async (productId, sizeData) => {
       };
     }
     
-    // Generate SKU for the size if not provided
     if (!sizeData.sku) {
       sizeData.sku = `${product.sku}-${sizeData.name.toUpperCase()}`;
     }
     
     product.sizes.push(sizeData);
     product.hasSizes = true;
-    
-    // Update total quantity
     product.quantity = product.sizes.reduce((total, s) => total + s.quantity, 0);
     
     await product.save();
@@ -290,6 +326,7 @@ const addSizeToProductSRV = async (productId, sizeData) => {
     };
   }
 };
+
 const updateSizeQuantitySRV = async (productId, sizeName, quantity) => {
   try {
     const product = await Product.findById(productId);
@@ -332,7 +369,7 @@ const updateSizeQuantitySRV = async (productId, sizeName, quantity) => {
     };
   }
 };
-// Remove size from product
+
 const removeSizeFromProductSRV = async (productId, sizeName) => {
   try {
     const product = await Product.findById(productId);
@@ -370,7 +407,7 @@ const removeSizeFromProductSRV = async (productId, sizeName) => {
     };
   }
 };
-// Get product sizes grouped by type
+
 const getProductSizesSRV = async (productId) => {
   try {
     const product = await Product.findById(productId).select('sizes hasSizes name');
