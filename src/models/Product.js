@@ -1,6 +1,19 @@
 const mongoose = require("mongoose");
 const slugify = require("../utils/slugify");
 
+//color add 
+const colorSchema = new mongoose.Schema({
+  name: {
+    type: String,
+    required: true,
+    trim: true,
+  },
+  hexCode: {
+    type: String,
+    trim: true,
+  },
+})
+
 // Size Schema for individual size options
 const sizeSchema = new mongoose.Schema({
   name: {
@@ -134,9 +147,14 @@ const productSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    hasColors: {
+      type: Boolean,
+      default: false,
+    },
 
     // Size options array
     sizes: [sizeSchema],
+    colors: [colorSchema],
 
     lowStockThreshold: {
       type: Number,

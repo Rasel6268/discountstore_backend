@@ -6,6 +6,7 @@ const {
   updateSizeQuantitySRV,
   removeSizeFromProductSRV,
   getProductSizesSRV,
+  updateProductSRV,
 } = require("../services/product.service");
 
 const createProduct = async (req, res) => {
@@ -22,13 +23,15 @@ const createProduct = async (req, res) => {
 
 const getAllProduct = async (req, res) => {
   try {
-    console.log("📥 Received query params:", req.query);
-    
     const result = await getAllProductSRV(req.query);
 
     return res.status(result.statusCode).json({
       success: result.success,
-      message: result.message || (result.success ? "Products fetched successfully" : "Failed to fetch products"),
+      message:
+        result.message ||
+        (result.success
+          ? "Products fetched successfully"
+          : "Failed to fetch products"),
       data: result.data,
       pagination: result.pagination,
       count: result.data?.length || 0,
@@ -57,7 +60,18 @@ const getProductById = async (req, res) => {
   }
 };
 
-const updateProduct = async (req, res) => {};
+const updateProduct = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updateData = req.body;
+    const result = await updateProductSRV(id, updateData);
+    if (result.success) {
+      return res.status(200).json(result);
+    } else {
+      return;
+    }
+  } catch (error) {}
+};
 
 const deleteProduct = async (req, res) => {
   try {

@@ -24,13 +24,14 @@ const validateInventory = async (items) => {
       continue;
     }
 
+    // Check for size-based product (with inventory)
     if (item.size && product.hasSizes) {
       const sizeVariant = product.sizes.find(
-        s => s.name === item.size.name && s.type === item.size.type
+        s => s.name === item.size.name && s.type === (item.size.type || "unisex")
       );
 
       if (!sizeVariant) {
-        inventoryErrors.push(`Size "${item.size.name}" (${item.size.type}) is not available for product "${product.name}"`);
+        inventoryErrors.push(`Size "${item.size.name}" (${item.size.type || "unisex"}) is not available for product "${product.name}"`);
         continue;
       }
 
@@ -46,7 +47,9 @@ const validateInventory = async (items) => {
         quantity: item.quantity,
         type: "size"
       });
-    } else {
+    }
+    // Regular product without sizes (colors don't affect inventory)
+    else {
       if (product.quantity < item.quantity) {
         inventoryErrors.push(`Insufficient stock for "${product.name}". Available: ${product.quantity}, Requested: ${item.quantity}`);
         continue;
@@ -71,7 +74,7 @@ const updateInventory = async (productUpdates) => {
     
     if (update.type === "size") {
       const sizeIndex = product.sizes.findIndex(
-        s => s.name === update.size.name && s.type === update.size.type
+        s => s.name === update.size.name && s.type === (update.size.type || "unisex")
       );
       
       if (sizeIndex !== -1) {
@@ -79,7 +82,8 @@ const updateInventory = async (productUpdates) => {
         product.quantity = product.sizes.reduce((sum, s) => sum + s.quantity, 0);
         await product.save();
       }
-    } else {
+    } 
+    else {
       product.quantity -= update.quantity;
       await product.save();
     }
@@ -90,8 +94,7 @@ const updateInventory = async (productUpdates) => {
 
 const createOrderSRV = async (orderData) => {
   try {
-    console.log("Creating order with data:", JSON.stringify(orderData, null, 2));
-    
+
     const shippingCost = orderData.shippingCost || (orderData.shippingArea === "dhaka" ? 60 : 130);
     
     const inventoryValidation = await validateInventory(orderData.items);
@@ -118,10 +121,24 @@ const createOrderSRV = async (orderData) => {
         extraPrice: item.size.extraPrice || 0,
         sku: item.size.sku || null,
       } : null,
-      totalPrice: item.totalPrice || (item.price * item.quantity),
+      color: item.color ? {
+        _id: item.color._id,
+        name: item.color.name,
+        hexCode: item.color.hexCode || "#000000",
+        extraPrice: item.color.extraPrice || 0,
+      } : null,
+      totalPrice: item.totalPrice || ((item.price + (item.size?.extraPrice || 0) + (item.color?.extraPrice || 0)) * item.quantity),
     }));
 
     const orderId = generateOrderId();
+
+    // Get payment method from multiple possible locations
+    const paymentMethod = orderData.paymentMethod || 
+                         orderData.payment?.method || 
+                         "cod";
+
+    const paymentStatus = orderData.payment?.status || "pending";
+    const transactionId = orderData.transactionId || orderData.payment?.transactionId || null;
 
     const order = new Order({
       orderId: orderId,
@@ -152,10 +169,10 @@ const createOrderSRV = async (orderData) => {
       tax: orderData.tax,
       total: orderData.total,
       payment: {
-        method: orderData.paymentMethod,
-        status: "pending",
+        method: paymentMethod,
+        status: paymentStatus,
         amount: orderData.total,
-        transactionId: orderData.transactionId || null,
+        transactionId: transactionId,
       },
       orderStatus: "pending",
       statusTimeline: [
@@ -172,10 +189,10 @@ const createOrderSRV = async (orderData) => {
     });
 
     const savedOrder = await order.save();
-    console.log("Order saved successfully:", savedOrder.orderId);
+    
 
     await updateInventory(inventoryValidation.productUpdates);
-    console.log("Inventory updated successfully");
+
 
     const populatedOrder = await Order.findById(savedOrder._id)
       .populate("user.userId", "name email phone")
@@ -198,6 +215,7 @@ const createOrderSRV = async (orderData) => {
     };
   }
 };
+
 const getAllOrdersSRV = async() => {
   try {
     const orders = await Order.find()
@@ -218,7 +236,8 @@ const getAllOrdersSRV = async() => {
       data: null,
     };
   }
-}
+};
+
 const getOrderByIdSRV = async (orderId, userId = null) => {
   try {
     const query = { orderId: orderId };
@@ -428,19 +447,21 @@ const cancelOrderSRV = async (orderId, reason, cancelledBy = "customer") => {
       };
     }
 
+    // Restore inventory (only for sizes, colors don't affect inventory)
     for (const item of order.items) {
       const product = await Product.findById(item.productId);
       if (product) {
         if (item.size && product.hasSizes) {
           const sizeIndex = product.sizes.findIndex(
-            s => s.name === item.size.name && s.type === item.size.type
+            s => s.name === item.size.name && s.type === (item.size.type || "unisex")
           );
           if (sizeIndex !== -1) {
             product.sizes[sizeIndex].quantity += item.quantity;
             product.quantity = product.sizes.reduce((sum, s) => sum + s.quantity, 0);
             await product.save();
           }
-        } else {
+        } 
+        else {
           product.quantity += item.quantity;
           await product.save();
         }
@@ -467,7 +488,7 @@ const cancelOrderSRV = async (orderId, reason, cancelledBy = "customer") => {
       statusCode: 200,
     };
   } catch (error) {
-    console.error("Cancel Order Service Error:", error);
+   
     return {
       success: false,
       message: error.message,
@@ -479,6 +500,7 @@ const cancelOrderSRV = async (orderId, reason, cancelledBy = "customer") => {
 
 module.exports = {
   createOrderSRV,
+  getAllOrdersSRV,
   getOrderByIdSRV,
   getUserOrdersSRV,
   updateOrderStatusSRV,

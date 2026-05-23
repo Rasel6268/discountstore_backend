@@ -33,6 +33,31 @@ const orderItemSizeSchema = new mongoose.Schema(
 );
 
 // ==========================================
+// ORDER ITEM COLOR SCHEMA
+// ==========================================
+const orderItemColorSchema = new mongoose.Schema(
+  {
+    _id: {
+      type: mongoose.Schema.Types.ObjectId,
+      required: true,
+    },
+
+    name: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
+    hexCode: {
+      type: String,
+      default: "#000000",
+      trim: true,
+    },
+  },
+  { _id: false }
+);
+
+// ==========================================
 // ORDER ITEM SCHEMA
 // ==========================================
 const orderItemSchema = new mongoose.Schema(
@@ -72,6 +97,8 @@ const orderItemSchema = new mongoose.Schema(
     },
 
     size: orderItemSizeSchema,
+
+    color: orderItemColorSchema,
 
     totalPrice: {
       type: Number,
@@ -432,8 +459,6 @@ const orderSchema = new mongoose.Schema(
     // META
     // ======================================
     ipAddress: String,
-
-    userAgent: String,
   },
   {
     timestamps: true,
@@ -447,7 +472,6 @@ const orderSchema = new mongoose.Schema(
     },
   }
 );
-
 
 // ==========================================
 // VIRTUALS

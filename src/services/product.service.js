@@ -2,8 +2,18 @@ const Product = require("../models/Product");
 
 const createProductSRV = async (body) => {
   try {
-    const { name, sku, regularPrice, discountPrice, hasSizes, sizes } = body;
+    const { 
+      name, 
+      sku, 
+      regularPrice, 
+      discountPrice, 
+      hasSizes, 
+      sizes,
+      hasColors,
+      colors 
+    } = body;
     
+    // Validate discount price
     if (discountPrice && discountPrice >= regularPrice) {
       return {
         success: false,
@@ -13,7 +23,8 @@ const createProductSRV = async (body) => {
       };
     }
     
-    if (hasSizes && sizes) {
+    // Validate sizes if enabled
+    if (hasSizes && sizes && sizes.length > 0) {
       const sizeValidation = validateSizes(sizes);
       if (!sizeValidation.valid) {
         return {
@@ -25,8 +36,25 @@ const createProductSRV = async (body) => {
       }
     }
     
+    // Validate colors if enabled
+    if (hasColors && colors && colors.length > 0) {
+      const colorValidation = validateColors(colors);
+      if (!colorValidation.valid) {
+        return {
+          success: false,
+          error: colorValidation.error,
+          statusCode: 400,
+          data: null,
+        };
+      }
+    }
+    
+    // Check for existing product
     const existingProduct = await Product.findOne({
-      $or: [{ name: { $regex: new RegExp(`^${name}$`, "i") } }, { sku: sku }],
+      $or: [
+        { name: { $regex: new RegExp(`^${name}$`, "i") } }, 
+        { sku: sku }
+      ],
     });
     
     if (existingProduct) {
@@ -38,10 +66,11 @@ const createProductSRV = async (body) => {
       };
     }
     
+    // Calculate total quantity based on sizes or colors
     if (hasSizes && sizes && sizes.length > 0) {
       body.quantity = sizes.reduce((total, size) => total + (size.quantity || 0), 0);
-    }
-    
+    } 
+    // Create product
     const product = new Product(body);
     await product.save();
 
@@ -52,6 +81,7 @@ const createProductSRV = async (body) => {
       statusCode: 201,
     };
   } catch (error) {
+    console.error("Create product error:", error);
     return {
       success: false,
       error: error.message,
@@ -59,6 +89,39 @@ const createProductSRV = async (body) => {
       data: null,
     };
   }
+};
+// Validate colors function
+const validateColors = (colors) => {
+  if (!colors || !Array.isArray(colors)) return { valid: true };
+  
+  const colorIds = new Set();
+  const colorNames = new Set();
+  
+  for (const color of colors) {
+    // Check for duplicate color IDs
+    if (color._id && colorIds.has(color._id)) {
+      return { valid: false, error: `Duplicate color found` };
+    }
+    if (color._id) colorIds.add(color._id);
+    
+    // Check for duplicate color names
+    if (color.name && colorNames.has(color.name)) {
+      return { valid: false, error: `Duplicate color name: ${color.name}` };
+    }
+    if (color.name) colorNames.add(color.name);
+    
+    // Validate quantity
+    if (color.quantity !== undefined && color.quantity < 0) {
+      return { valid: false, error: `Quantity cannot be negative for color: ${color.name}` };
+    }
+    
+    // Validate hex code format (if provided)
+    if (color.hexCode && !/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/.test(color.hexCode)) {
+      return { valid: false, error: `Invalid hex code format for color: ${color.name}` };
+    }
+  }
+  
+  return { valid: true };
 };
 
 const getAllProductSRV = async (filters = {}) => {
@@ -226,7 +289,114 @@ const getProductByIdSRV = async (id) => {
   }
 };
 
-const updateProductSRV = async () => {};
+const updateProductSRV = async (id, body) => {
+  try {
+    const { 
+      name, 
+      sku, 
+      regularPrice, 
+      discountPrice, 
+      hasSizes, 
+      sizes,
+      hasColors,
+      colors 
+    } = body;
+    
+    // Find existing product
+    const product = await Product.findById(id);
+    if (!product) {
+      return {
+        success: false,
+        error: "Product not found",
+        statusCode: 404,
+        data: null,
+      };
+    }
+    
+    // Validate discount price
+    if (discountPrice && discountPrice >= regularPrice) {
+      return {
+        success: false,
+        error: "Discount price must be less than regular price",
+        statusCode: 400,
+        data: null,
+      };
+    }
+    
+    // Validate sizes if enabled
+    if (hasSizes && sizes && sizes.length > 0) {
+      const sizeValidation = validateSizes(sizes);
+      if (!sizeValidation.valid) {
+        return {
+          success: false,
+          error: sizeValidation.error,
+          statusCode: 400,
+          data: null,
+        };
+      }
+    }
+    
+    // Validate colors if enabled
+    if (hasColors && colors && colors.length > 0) {
+      const colorValidation = validateColors(colors);
+      if (!colorValidation.valid) {
+        return {
+          success: false,
+          error: colorValidation.error,
+          statusCode: 400,
+          data: null,
+        };
+      }
+    }
+    
+    // Check for duplicate name/SKU (excluding current product)
+    if (name && name !== product.name || sku && sku !== product.sku) {
+      const existingProduct = await Product.findOne({
+        $or: [
+          ...(name && name !== product.name ? [{ name: { $regex: new RegExp(`^${name}$`, "i") } }] : []),
+          ...(sku && sku !== product.sku ? [{ sku: sku }] : [])
+        ],
+        _id: { $ne: id }
+      });
+      
+      if (existingProduct) {
+        return {
+          success: false,
+          error: "Product with same name or SKU already exists",
+          statusCode: 400,
+          data: null,
+        };
+      }
+    }
+    
+    // Calculate total quantity based on sizes or colors
+    if (hasSizes && sizes && sizes.length > 0) {
+      body.quantity = sizes.reduce((total, size) => total + (size.quantity || 0), 0);
+    } 
+    
+    // Update product
+    const updatedProduct = await Product.findByIdAndUpdate(
+      id,
+      { ...body },
+      { new: true, runValidators: true }
+    );
+    
+    return {
+      success: true,
+      message: "Product updated successfully",
+      data: updatedProduct,
+      statusCode: 200,
+    };
+  } catch (error) {
+    console.error("Update product error:", error);
+    return {
+      success: false,
+      error: error.message,
+      statusCode: 500,
+      data: null,
+    };
+  }
+};
 
 const deleteProductSRV = async (id) => {
   try {

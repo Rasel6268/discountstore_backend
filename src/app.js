@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const connectDb = require('./config/db');
 const cookieParser = require('cookie-parser');
+const colorRoutes = require('./routers/color.route');
 
 const app = express();
 
@@ -58,6 +59,7 @@ app.use('/brands', require('./routers/brand.route'));
 app.use('/products', require('./routers/product.route'));
 app.use('/coupons', require('./routers/coupon.routes'));
 app.use('/orders', require('./routers/order.route'));
+app.use('/colors', colorRoutes);
 
 // =======================
 // ERROR HANDLING
