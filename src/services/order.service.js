@@ -8,7 +8,9 @@ const generateOrderId = () => {
   const year = date.getFullYear().toString().slice(-2);
   const month = (date.getMonth() + 1).toString().padStart(2, "0");
   const day = date.getDate().toString().padStart(2, "0");
-  const random = Math.floor(Math.random() * 10000).toString().padStart(4, "0");
+  const random = Math.floor(Math.random() * 10000)
+    .toString()
+    .padStart(4, "0");
   return `ORD-${year}${month}${day}${random}`;
 };
 
@@ -18,7 +20,7 @@ const validateInventory = async (items) => {
 
   for (const item of items) {
     const product = await Product.findById(item.productId);
-    
+
     if (!product) {
       inventoryErrors.push(`Product "${item.name}" not found`);
       continue;
@@ -27,16 +29,21 @@ const validateInventory = async (items) => {
     // Check for size-based product (with inventory)
     if (item.size && product.hasSizes) {
       const sizeVariant = product.sizes.find(
-        s => s.name === item.size.name && s.type === (item.size.type || "unisex")
+        (s) =>
+          s.name === item.size.name && s.type === (item.size.type || "unisex"),
       );
 
       if (!sizeVariant) {
-        inventoryErrors.push(`Size "${item.size.name}" (${item.size.type || "unisex"}) is not available for product "${product.name}"`);
+        inventoryErrors.push(
+          `Size "${item.size.name}" (${item.size.type || "unisex"}) is not available for product "${product.name}"`,
+        );
         continue;
       }
 
       if (sizeVariant.quantity < item.quantity) {
-        inventoryErrors.push(`Insufficient stock for "${product.name}" - Size ${item.size.name}. Available: ${sizeVariant.quantity}, Requested: ${item.quantity}`);
+        inventoryErrors.push(
+          `Insufficient stock for "${product.name}" - Size ${item.size.name}. Available: ${sizeVariant.quantity}, Requested: ${item.quantity}`,
+        );
         continue;
       }
 
@@ -45,13 +52,15 @@ const validateInventory = async (items) => {
         product: product,
         size: item.size,
         quantity: item.quantity,
-        type: "size"
+        type: "size",
       });
     }
     // Regular product without sizes (colors don't affect inventory)
     else {
       if (product.quantity < item.quantity) {
-        inventoryErrors.push(`Insufficient stock for "${product.name}". Available: ${product.quantity}, Requested: ${item.quantity}`);
+        inventoryErrors.push(
+          `Insufficient stock for "${product.name}". Available: ${product.quantity}, Requested: ${item.quantity}`,
+        );
         continue;
       }
 
@@ -60,30 +69,38 @@ const validateInventory = async (items) => {
         product: product,
         size: null,
         quantity: item.quantity,
-        type: "regular"
+        type: "regular",
       });
     }
   }
 
-  return { isValid: inventoryErrors.length === 0, errors: inventoryErrors, productUpdates };
+  return {
+    isValid: inventoryErrors.length === 0,
+    errors: inventoryErrors,
+    productUpdates,
+  };
 };
 
 const updateInventory = async (productUpdates) => {
   const updatePromises = productUpdates.map(async (update) => {
     const product = update.product;
-    
+
     if (update.type === "size") {
       const sizeIndex = product.sizes.findIndex(
-        s => s.name === update.size.name && s.type === (update.size.type || "unisex")
+        (s) =>
+          s.name === update.size.name &&
+          s.type === (update.size.type || "unisex"),
       );
-      
+
       if (sizeIndex !== -1) {
         product.sizes[sizeIndex].quantity -= update.quantity;
-        product.quantity = product.sizes.reduce((sum, s) => sum + s.quantity, 0);
+        product.quantity = product.sizes.reduce(
+          (sum, s) => sum + s.quantity,
+          0,
+        );
         await product.save();
       }
-    } 
-    else {
+    } else {
       product.quantity -= update.quantity;
       await product.save();
     }
@@ -94,9 +111,9 @@ const updateInventory = async (productUpdates) => {
 
 const createOrderSRV = async (orderData) => {
   try {
+    const shippingCost =
+      orderData.shippingCost || (orderData.shippingArea === "dhaka" ? 60 : 130);
 
-    const shippingCost = orderData.shippingCost || (orderData.shippingArea === "dhaka" ? 60 : 130);
-    
     const inventoryValidation = await validateInventory(orderData.items);
     if (!inventoryValidation.isValid) {
       return {
@@ -108,37 +125,46 @@ const createOrderSRV = async (orderData) => {
       };
     }
 
-    const orderItems = orderData.items.map(item => ({
+    const orderItems = orderData.items.map((item) => ({
       productId: item.productId,
       name: item.name,
       sku: item.sku || null,
       price: item.price,
       quantity: item.quantity,
       image: item.image || null,
-      size: item.size ? {
-        name: item.size.name,
-        type: item.size.type || "unisex",
-        extraPrice: item.size.extraPrice || 0,
-        sku: item.size.sku || null,
-      } : null,
-      color: item.color ? {
-        _id: item.color._id,
-        name: item.color.name,
-        hexCode: item.color.hexCode || "#000000",
-        extraPrice: item.color.extraPrice || 0,
-      } : null,
-      totalPrice: item.totalPrice || ((item.price + (item.size?.extraPrice || 0) + (item.color?.extraPrice || 0)) * item.quantity),
+      size: item.size
+        ? {
+            name: item.size.name,
+            type: item.size.type || "unisex",
+            extraPrice: item.size.extraPrice || 0,
+            sku: item.size.sku || null,
+          }
+        : null,
+      color: item.color
+        ? {
+            _id: item.color._id,
+            name: item.color.name,
+            hexCode: item.color.hexCode || "#000000",
+            extraPrice: item.color.extraPrice || 0,
+          }
+        : null,
+      totalPrice:
+        item.totalPrice ||
+        (item.price +
+          (item.size?.extraPrice || 0) +
+          (item.color?.extraPrice || 0)) *
+          item.quantity,
     }));
 
     const orderId = generateOrderId();
 
     // Get payment method from multiple possible locations
-    const paymentMethod = orderData.paymentMethod || 
-                         orderData.payment?.method || 
-                         "cod";
+    const paymentMethod =
+      orderData.paymentMethod || orderData.payment?.method || "cod";
 
     const paymentStatus = orderData.payment?.status || "pending";
-    const transactionId = orderData.transactionId || orderData.payment?.transactionId || null;
+    const transactionId =
+      orderData.transactionId || orderData.payment?.transactionId || null;
 
     const order = new Order({
       orderId: orderId,
@@ -189,10 +215,8 @@ const createOrderSRV = async (orderData) => {
     });
 
     const savedOrder = await order.save();
-    
 
     await updateInventory(inventoryValidation.productUpdates);
-
 
     const populatedOrder = await Order.findById(savedOrder._id)
       .populate("user.userId", "name email phone")
@@ -216,7 +240,7 @@ const createOrderSRV = async (orderData) => {
   }
 };
 
-const getAllOrdersSRV = async() => {
+const getAllOrdersSRV = async () => {
   try {
     const orders = await Order.find()
       .sort({ createdAt: -1 })
@@ -313,66 +337,63 @@ const getUserOrdersSRV = async (userId, filters = {}) => {
   }
 };
 
-const updateOrderStatusSRV = async (orderId, status, note, updatedBy = "admin") => {
+const updateOrderStatusSRV = async (
+  orderId,
+  newStatus,
+  note,
+  updatedBy = "admin",
+) => {
   try {
-    const order = await Order.findOne({ orderId: orderId });
+    const updatedOrderStatus = await Order.findByIdAndUpdate(
+      orderId,
+      {
+        orderStatus: newStatus,
+        $push: {
+          statusTimeline: {
+            status: newStatus,
+            note: note || `Order status updated to ${newStatus}`,
+            updatedBy,
+            timestamp: new Date(),
+          },
+        },
+      },
+      {
+        returnDocument: 'after',  // Changed from new: true
+        runValidators: true,
+      },
+    );
     
-    if (!order) {
+    if (!updatedOrderStatus) {
       return {
         success: false,
         message: "Order not found",
         statusCode: 404,
-        data: null,
       };
     }
-
-    const oldStatus = order.orderStatus;
-    order.orderStatus = status;
-    
-    order.statusTimeline.push({
-      status: status,
-      note: note || `Status changed from ${oldStatus} to ${status}`,
-      updatedBy: updatedBy,
-      timestamp: new Date(),
-    });
-
-    if (status === "delivered" && !order.deliveredAt) {
-      order.deliveredAt = new Date();
-    }
-
-    if (status === "cancelled" && !order.cancelledAt) {
-      order.cancelledAt = new Date();
-      if (note) order.cancellationReason = note;
-    }
-
-    await order.save();
 
     return {
       success: true,
       message: "Order status updated successfully",
-      data: {
-        orderId: order.orderId,
-        oldStatus,
-        newStatus: status,
-        order: order,
-      },
-      statusCode: 200,
+      data: updatedOrderStatus,
+      statusCode: 200, 
     };
   } catch (error) {
-    console.error("Update Order Status Service Error:", error);
+    console.error("Service error:", error);
     return {
       success: false,
       message: error.message,
-      statusCode: 500,
-      data: null,
+      statusCode: 500,  // Ensure this is present
     };
   }
 };
-
-const updatePaymentStatusSRV = async (orderId, paymentStatus, transactionId = null) => {
+const updatePaymentStatusSRV = async (
+  orderId,
+  paymentStatus,
+  transactionId = null,
+) => {
   try {
     const order = await Order.findOne({ orderId: orderId });
-    
+
     if (!order) {
       return {
         success: false,
@@ -384,11 +405,11 @@ const updatePaymentStatusSRV = async (orderId, paymentStatus, transactionId = nu
 
     const oldStatus = order.payment.status;
     order.payment.status = paymentStatus;
-    
+
     if (transactionId) {
       order.payment.transactionId = transactionId;
     }
-    
+
     if (paymentStatus === "completed" && !order.payment.paidAt) {
       order.payment.paidAt = new Date();
     }
@@ -427,7 +448,7 @@ const updatePaymentStatusSRV = async (orderId, paymentStatus, transactionId = nu
 const cancelOrderSRV = async (orderId, reason, cancelledBy = "customer") => {
   try {
     const order = await Order.findOne({ orderId: orderId });
-    
+
     if (!order) {
       return {
         success: false,
@@ -453,15 +474,19 @@ const cancelOrderSRV = async (orderId, reason, cancelledBy = "customer") => {
       if (product) {
         if (item.size && product.hasSizes) {
           const sizeIndex = product.sizes.findIndex(
-            s => s.name === item.size.name && s.type === (item.size.type || "unisex")
+            (s) =>
+              s.name === item.size.name &&
+              s.type === (item.size.type || "unisex"),
           );
           if (sizeIndex !== -1) {
             product.sizes[sizeIndex].quantity += item.quantity;
-            product.quantity = product.sizes.reduce((sum, s) => sum + s.quantity, 0);
+            product.quantity = product.sizes.reduce(
+              (sum, s) => sum + s.quantity,
+              0,
+            );
             await product.save();
           }
-        } 
-        else {
+        } else {
           product.quantity += item.quantity;
           await product.save();
         }
@@ -471,7 +496,7 @@ const cancelOrderSRV = async (orderId, reason, cancelledBy = "customer") => {
     order.orderStatus = "cancelled";
     order.cancelledAt = new Date();
     order.cancellationReason = reason;
-    
+
     order.statusTimeline.push({
       status: "cancelled",
       note: `Order cancelled by ${cancelledBy}. Reason: ${reason}`,
@@ -488,7 +513,6 @@ const cancelOrderSRV = async (orderId, reason, cancelledBy = "customer") => {
       statusCode: 200,
     };
   } catch (error) {
-   
     return {
       success: false,
       message: error.message,

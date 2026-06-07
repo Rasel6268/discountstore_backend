@@ -111,7 +111,6 @@ const updateOrderStatus = async (req, res) => {
   try {
     const { orderId } = req.params;
     const { status, note, updatedBy } = req.body;
-    
     const result = await updateOrderStatusSRV(orderId, status, note, updatedBy || "admin");
     
     return res.status(result.statusCode).json({
