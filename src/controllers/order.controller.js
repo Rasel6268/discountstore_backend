@@ -6,7 +6,8 @@ const {
   updateOrderStatusSRV,
   updatePaymentStatusSRV,
   cancelOrderSRV,
-  getAllOrdersSRV
+  getAllOrdersSRV,
+  getOrdersByUserIdSRV
 } = require("../services/order.service");
 
 /**
@@ -54,6 +55,23 @@ const getOrderById = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: error.message
+    });
+  }
+};
+const getOrdersById = async (req, res) => {
+  try {
+    const result = await getOrdersByUserIdSRV(req.params.id);
+
+    if (!result.success) {
+      return res.status(404).json(result);
+    }
+
+    return res.status(200).json(result);
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
     });
   }
 };
@@ -228,5 +246,6 @@ module.exports = {
   getAllOrders,
   updateOrderStatus,
   updatePaymentStatus,
-  cancelOrder
+  cancelOrder,
+  getOrdersById
 };

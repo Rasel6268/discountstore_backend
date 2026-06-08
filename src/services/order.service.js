@@ -297,7 +297,23 @@ const getOrderByIdSRV = async (orderId, userId = null) => {
     };
   }
 };
+const getOrdersByUserIdSRV = async (userId) => {
+  try {
+    const orders = await Order.find({
+      "user.userId": userId,
+    }).sort({ createdAt: -1 });
 
+    return {
+      success: true,
+      data: orders,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.message,
+    };
+  }
+};
 const getUserOrdersSRV = async (userId, filters = {}) => {
   try {
     const { page = 1, limit = 10, status } = filters;
@@ -530,4 +546,5 @@ module.exports = {
   updateOrderStatusSRV,
   updatePaymentStatusSRV,
   cancelOrderSRV,
+  getOrdersByUserIdSRV
 };

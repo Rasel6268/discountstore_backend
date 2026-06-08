@@ -94,7 +94,6 @@ const makeAdminService = async (userId, adminStatus) => {
       { role: adminStatus.role },
       { returnDocument:"after" },
     );
-    console.log("Updated user:", user);
     return {
       success: true,
       message: "Admin status updated successfully",
