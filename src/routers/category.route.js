@@ -9,19 +9,21 @@ const {
   getCategoryById,
   updateCategory,
 } = require("../controllers/category.controller");
+const verifyToken = require("../middleware/verifyToken");
+const AdminVerify = require("../middleware/AdminVerify");
 const router = express.Router();
 
 // Main category routes
-router.post("/main", createMainCategory);
+router.post("/main", verifyToken, AdminVerify, createMainCategory);
 router.get("/main", getMainCategories);
 
 // Subcategory routes
-router.post("/sub/:parentId", createSubCategory);
+router.post("/sub/:parentId", verifyToken, AdminVerify, createSubCategory);
 
 // General category routes
 router.get("/", getAllCategories);
 router.get("/:id", getCategoryById);
-router.put("/:id", updateCategory);
-router.delete("/:id", deleteCategory);
+router.put("/:id", verifyToken, AdminVerify, updateCategory);
+router.delete("/:id", verifyToken, AdminVerify, deleteCategory);
 
 module.exports = router;

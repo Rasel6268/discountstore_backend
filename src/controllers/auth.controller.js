@@ -1,8 +1,10 @@
+const User = require("../models/User");
 const {
   RegisterService,
   LoginService,
   profileService,
   authMeService,
+  makeAdminService,
 } = require("../services/auth.service");
 
 /**
@@ -48,8 +50,8 @@ const login = async (req, res) => {
 
     res.cookie("token", result.token, {
       httpOnly: true,
-      secure: true,        
-      sameSite: "none",    
+      secure: true,
+      sameSite: "none",
       maxAge: 24 * 60 * 60 * 1000,
     });
 
@@ -125,6 +127,30 @@ const editProfile = async (req, res) => {
     return res.status(500).json({ error: "Server error" });
   }
 };
+const makeAdminController = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const adminStatus = req.body;
+    const result = await makeAdminService(userId, adminStatus);
+    if (!result.success) {
+      return res.status(400).json(result);
+    }
+    return res.status(200).json(result);
+  } catch (error) {
+    {
+      return res.status(500).json({ error: "Server error" });
+    }
+  }
+};
+const getAllUsers = async (req, res) => {
+  try {
+    const users = await User.find({}, { password: 0 });
+    return res.status(200).json({ success: true, users });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Server error" });
+  }
+};
 
 module.exports = {
   register,
@@ -132,4 +158,6 @@ module.exports = {
   logout,
   authMe,
   editProfile,
+  getAllUsers,
+  makeAdminController,
 };

@@ -86,12 +86,30 @@ const profileService = async (updateData) => {
     return { success: false, message: "Error updating profile", error };
   }
 };
-
+const makeAdminService = async (userId, adminStatus) => {
+  const user = await User.findById(userId);
+  try {
+    const user = await User.findByIdAndUpdate(
+      { _id: userId },
+      { role: adminStatus.role },
+      { returnDocument:"after" },
+    );
+    console.log("Updated user:", user);
+    return {
+      success: true,
+      message: "Admin status updated successfully",
+      user,
+    };
+  } catch (error) {
+    return { success: false, message: "Error updating admin status", error };
+  }
+};
 const LogoutService = (body) => {};
 module.exports = {
   RegisterService,
   LoginService,
   LogoutService,
   profileService,
-  authMeService
+  authMeService,
+  makeAdminService,
 };
