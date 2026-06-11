@@ -60,6 +60,7 @@ app.use('/products', require('./routers/product.route'));
 app.use('/coupons', require('./routers/coupon.routes'));
 app.use('/orders', require('./routers/order.route'));
 app.use('/colors', colorRoutes);
+app.use("/sizes",require('./routers/size.route'))
 
 // =======================
 // ERROR HANDLING
