@@ -1,6 +1,7 @@
 // services/order.service.js
 const Order = require("../models/Order");
 const Product = require("../models/Product");
+const Coupon = require("../models/Coupon");
 const mongoose = require("mongoose");
 
 const generateOrderId = () => {
@@ -145,7 +146,6 @@ const createOrderSRV = async (orderData) => {
             _id: item.color._id,
             name: item.color.name,
             hexCode: item.color.hexCode || "#000000",
-            extraPrice: item.color.extraPrice || 0,
           }
         : null,
       totalPrice:
@@ -165,6 +165,25 @@ const createOrderSRV = async (orderData) => {
     const paymentStatus = orderData.payment?.status || "pending";
     const transactionId =
       orderData.transactionId || orderData.payment?.transactionId || null;
+
+    // Prepare coupon applied data if coupon is provided
+    let couponApplied = null;
+    let couponDiscount = orderData.couponDiscount || 0;
+    let discount = (orderData.discount || 0) + couponDiscount;
+
+    if (orderData.couponCode && orderData.couponId) {
+      couponApplied = {
+        couponId: orderData.couponId,
+        code: orderData.couponCode,
+        name: orderData.couponName || orderData.couponCode,
+        type: orderData.couponType || "percentage",
+        value: orderData.couponValue || 0,
+        discountAmount: couponDiscount,
+        minPurchase: orderData.couponMinPurchase || 0,
+        maxDiscount: orderData.couponMaxDiscount || null,
+        appliedAt: new Date(),
+      };
+    }
 
     const order = new Order({
       orderId: orderId,
@@ -189,9 +208,12 @@ const createOrderSRV = async (orderData) => {
       estimatedDeliveryDate: orderData.estimatedDeliveryDate || null,
       items: orderItems,
       subtotal: orderData.subtotal,
-      discount: (orderData.discount || 0) + (orderData.couponDiscount || 0),
+      discount: discount,
       couponCode: orderData.couponCode || null,
-      couponDiscount: orderData.couponDiscount || 0,
+      couponDiscount: couponDiscount,
+      couponApplied: couponApplied, // New field
+      additionalDiscount: orderData.additionalDiscount || 0,
+      additionalDiscountReason: orderData.additionalDiscountReason || null,
       tax: orderData.tax,
       total: orderData.total,
       payment: {
@@ -211,7 +233,6 @@ const createOrderSRV = async (orderData) => {
       ],
       notes: orderData.notes || "",
       ipAddress: orderData.ipAddress || null,
-      userAgent: orderData.userAgent || null,
     });
 
     const savedOrder = await order.save();
@@ -220,7 +241,8 @@ const createOrderSRV = async (orderData) => {
 
     const populatedOrder = await Order.findById(savedOrder._id)
       .populate("user.userId", "name email phone")
-      .populate("items.productId", "name images slug");
+      .populate("items.productId", "name images slug")
+      .populate("couponApplied.couponId", "code name type value");
 
     return {
       success: true,
@@ -245,7 +267,9 @@ const getAllOrdersSRV = async () => {
     const orders = await Order.find()
       .sort({ createdAt: -1 })
       .populate("user.userId", "name email phone")
-      .populate("items.productId", "name images slug brand category");
+      .populate("items.productId", "name images slug brand category")
+      .populate("couponApplied.couponId", "code name type value");
+    
     return {
       success: true,
       message: "Orders retrieved successfully",
@@ -271,7 +295,8 @@ const getOrderByIdSRV = async (orderId, userId = null) => {
 
     const order = await Order.findOne(query)
       .populate("user.userId", "name email phone")
-      .populate("items.productId", "name images slug brand category");
+      .populate("items.productId", "name images slug brand category")
+      .populate("couponApplied.couponId", "code name type value");
 
     if (!order) {
       return {
@@ -297,11 +322,14 @@ const getOrderByIdSRV = async (orderId, userId = null) => {
     };
   }
 };
+
 const getOrdersByUserIdSRV = async (userId) => {
   try {
     const orders = await Order.find({
       "user.userId": userId,
-    }).sort({ createdAt: -1 });
+    })
+      .sort({ createdAt: -1 })
+      .populate("couponApplied.couponId", "code name type value");
 
     return {
       success: true,
@@ -314,6 +342,7 @@ const getOrdersByUserIdSRV = async (userId) => {
     };
   }
 };
+
 const getUserOrdersSRV = async (userId, filters = {}) => {
   try {
     const { page = 1, limit = 10, status } = filters;
@@ -327,7 +356,8 @@ const getUserOrdersSRV = async (userId, filters = {}) => {
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(parseInt(limit))
-        .populate("items.productId", "name images slug"),
+        .populate("items.productId", "name images slug")
+        .populate("couponApplied.couponId", "code name type value"),
       Order.countDocuments(query),
     ]);
 
@@ -374,7 +404,7 @@ const updateOrderStatusSRV = async (
         },
       },
       {
-        returnDocument: 'after',  // Changed from new: true
+        returnDocument: 'after',
         runValidators: true,
       },
     );
@@ -398,10 +428,11 @@ const updateOrderStatusSRV = async (
     return {
       success: false,
       message: error.message,
-      statusCode: 500,  // Ensure this is present
+      statusCode: 500,
     };
   }
 };
+
 const updatePaymentStatusSRV = async (
   orderId,
   paymentStatus,
@@ -538,6 +569,63 @@ const cancelOrderSRV = async (orderId, reason, cancelledBy = "customer") => {
   }
 };
 
+// New function to get orders by coupon
+const getOrdersByCouponSRV = async (couponCode) => {
+  try {
+    const orders = await Order.find({ 
+      couponCode: couponCode.toUpperCase() 
+    })
+      .sort({ createdAt: -1 })
+      .populate("user.userId", "name email phone")
+      .populate("couponApplied.couponId", "code name type value");
+
+    return {
+      success: true,
+      data: orders,
+      total: orders.length,
+      statusCode: 200,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.message,
+      statusCode: 500,
+      data: null,
+    };
+  }
+};
+
+// New function to get coupon usage statistics
+const getCouponUsageStatsSRV = async (couponId) => {
+  try {
+    const stats = await Order.aggregate([
+      { $match: { "couponApplied.couponId": new mongoose.Types.ObjectId(couponId) } },
+      {
+        $group: {
+          _id: "$couponApplied.code",
+          totalOrders: { $sum: 1 },
+          totalDiscountAmount: { $sum: "$couponDiscount" },
+          averageDiscount: { $avg: "$couponDiscount" },
+          totalRevenue: { $sum: "$total" },
+        },
+      },
+    ]);
+
+    return {
+      success: true,
+      data: stats[0] || null,
+      statusCode: 200,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.message,
+      statusCode: 500,
+      data: null,
+    };
+  }
+};
+
 module.exports = {
   createOrderSRV,
   getAllOrdersSRV,
@@ -546,5 +634,7 @@ module.exports = {
   updateOrderStatusSRV,
   updatePaymentStatusSRV,
   cancelOrderSRV,
-  getOrdersByUserIdSRV
+  getOrdersByUserIdSRV,
+  getOrdersByCouponSRV,
+  getCouponUsageStatsSRV,
 };

@@ -207,6 +207,65 @@ const paymentSchema = new mongoose.Schema(
 );
 
 // ==========================================
+// COUPON SCHEMA (Embedded)
+// ==========================================
+const couponAppliedSchema = new mongoose.Schema(
+  {
+    couponId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Coupon",
+      required: true,
+    },
+
+    code: {
+      type: String,
+      required: true,
+      uppercase: true,
+      trim: true,
+    },
+
+    name: {
+      type: String,
+      required: true,
+    },
+
+    type: {
+      type: String,
+      enum: ["percentage", "fixed", "free_shipping"],
+      required: true,
+    },
+
+    value: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+
+    discountAmount: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+
+    minPurchase: {
+      type: Number,
+      default: 0,
+    },
+
+    maxDiscount: {
+      type: Number,
+      default: null,
+    },
+
+    appliedAt: {
+      type: Date,
+      default: Date.now,
+    },
+  },
+  { _id: false }
+);
+
+// ==========================================
 // STATUS TIMELINE SCHEMA
 // ==========================================
 const orderStatusTimelineSchema = new mongoose.Schema(
@@ -339,6 +398,7 @@ const orderSchema = new mongoose.Schema(
       min: 0,
     },
 
+    // Legacy discount fields (deprecated but kept for backward compatibility)
     discount: {
       type: Number,
       default: 0,
@@ -354,6 +414,24 @@ const orderSchema = new mongoose.Schema(
       type: Number,
       default: 0,
       min: 0,
+    },
+
+    // New coupon system
+    couponApplied: {
+      type: couponAppliedSchema,
+      default: null,
+    },
+
+    // Additional discounts (e.g., from admin, bulk discounts)
+    additionalDiscount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
+    additionalDiscountReason: {
+      type: String,
+      trim: true,
     },
 
     tax: {
@@ -473,6 +551,8 @@ const orderSchema = new mongoose.Schema(
   }
 );
 
+
+
 // ==========================================
 // VIRTUALS
 // ==========================================
@@ -480,16 +560,35 @@ orderSchema.virtual("totalItems").get(function () {
   return this.items.reduce((sum, item) => sum + item.quantity, 0);
 });
 
+orderSchema.virtual("totalDiscount").get(function () {
+  let total = 0;
+  
+  if (this.couponDiscount) {
+    total += this.couponDiscount;
+  }
+  
+  if (this.additionalDiscount) {
+    total += this.additionalDiscount;
+  }
+  
+  return total;
+});
+
 orderSchema.virtual("summary").get(function () {
   return {
     orderId: this.orderId,
     totalItems: this.totalItems,
     subtotal: this.subtotal,
+    discount: this.totalDiscount,
     shipping: this.shippingCost,
     tax: this.tax,
     total: this.total,
     orderStatus: this.orderStatus,
     paymentStatus: this.payment.status,
+    couponApplied: this.couponApplied ? {
+      code: this.couponApplied.code,
+      discountAmount: this.couponApplied.discountAmount,
+    } : null,
   };
 });
 
@@ -502,27 +601,15 @@ orderSchema.pre("save", async function () {
     const date = new Date();
 
     const year = date.getFullYear().toString().slice(-2);
-
-    const month = (date.getMonth() + 1)
-      .toString()
-      .padStart(2, "0");
-
-    const day = date.getDate()
-      .toString()
-      .padStart(2, "0");
-
-    const random = Math.floor(Math.random() * 10000)
-      .toString()
-      .padStart(4, "0");
+    const month = (date.getMonth() + 1).toString().padStart(2, "0");
+    const day = date.getDate().toString().padStart(2, "0");
+    const random = Math.floor(Math.random() * 10000).toString().padStart(4, "0");
 
     this.orderId = `ORD${year}${month}${day}${random}`;
   }
 
   // Add status timeline
-  if (
-    this.isModified("orderStatus") ||
-    this.statusTimeline.length === 0
-  ) {
+  if (this.isModified("orderStatus") || this.statusTimeline.length === 0) {
     this.statusTimeline.push({
       status: this.orderStatus,
       timestamp: new Date(),
@@ -531,43 +618,25 @@ orderSchema.pre("save", async function () {
   }
 
   // Delivered
-  if (
-    this.orderStatus === "delivered" &&
-    !this.deliveredAt
-  ) {
+  if (this.orderStatus === "delivered" && !this.deliveredAt) {
     this.deliveredAt = new Date();
   }
 
   // Cancelled
-  if (
-    this.orderStatus === "cancelled" &&
-    !this.cancelledAt
-  ) {
+  if (this.orderStatus === "cancelled" && !this.cancelledAt) {
     this.cancelledAt = new Date();
   }
 
   // Payment completed
-  if (
-    this.payment?.status === "completed" &&
-    !this.payment?.paidAt
-  ) {
+  if (this.payment?.status === "completed" && !this.payment?.paidAt) {
     this.payment.paidAt = new Date();
   }
 
   // Estimated delivery
-  if (
-    !this.estimatedDeliveryDate &&
-    this.orderStatus !== "cancelled"
-  ) {
-    const deliveryDays =
-      this.shippingArea === "dhaka" ? 2 : 5;
-
+  if (!this.estimatedDeliveryDate && this.orderStatus !== "cancelled") {
+    const deliveryDays = this.shippingArea === "dhaka" ? 2 : 5;
     const estimatedDate = new Date();
-
-    estimatedDate.setDate(
-      estimatedDate.getDate() + deliveryDays
-    );
-
+    estimatedDate.setDate(estimatedDate.getDate() + deliveryDays);
     this.estimatedDeliveryDate = estimatedDate;
   }
 });
@@ -575,10 +644,7 @@ orderSchema.pre("save", async function () {
 // ==========================================
 // STATIC METHODS
 // ==========================================
-orderSchema.statics.getOrderStats = async function (
-  startDate,
-  endDate
-) {
+orderSchema.statics.getOrderStats = async function (startDate, endDate) {
   const match = {};
 
   if (startDate || endDate) {
@@ -608,31 +674,29 @@ orderSchema.statics.getOrderStats = async function (
           $sum: "$total",
         },
 
+        totalDiscountGiven: {
+          $sum: "$couponDiscount",
+        },
+
         averageOrderValue: {
           $avg: "$total",
         },
 
         completedOrders: {
           $sum: {
-            $cond: [
-              {
-                $eq: ["$orderStatus", "delivered"],
-              },
-              1,
-              0,
-            ],
+            $cond: [{ $eq: ["$orderStatus", "delivered"] }, 1, 0],
           },
         },
 
         cancelledOrders: {
           $sum: {
-            $cond: [
-              {
-                $eq: ["$orderStatus", "cancelled"],
-              },
-              1,
-              0,
-            ],
+            $cond: [{ $eq: ["$orderStatus", "cancelled"] }, 1, 0],
+          },
+        },
+
+        ordersWithCoupon: {
+          $sum: {
+            $cond: [{ $ne: ["$couponApplied", null] }, 1, 0],
           },
         },
       },
@@ -643,21 +707,38 @@ orderSchema.statics.getOrderStats = async function (
     stats[0] || {
       totalOrders: 0,
       totalRevenue: 0,
+      totalDiscountGiven: 0,
       averageOrderValue: 0,
       completedOrders: 0,
       cancelledOrders: 0,
+      ordersWithCoupon: 0,
     }
   );
+};
+
+// Get coupon usage statistics
+orderSchema.statics.getCouponStats = async function (couponId) {
+  const stats = await this.aggregate([
+    { $match: { "couponApplied.couponId": mongoose.Types.ObjectId(couponId) } },
+    
+    {
+      $group: {
+        _id: "$couponApplied.code",
+        totalOrders: { $sum: 1 },
+        totalDiscountAmount: { $sum: "$couponDiscount" },
+        averageDiscount: { $avg: "$couponDiscount" },
+        totalRevenue: { $sum: "$total" },
+      },
+    },
+  ]);
+
+  return stats[0] || null;
 };
 
 // ==========================================
 // INSTANCE METHODS
 // ==========================================
-orderSchema.methods.updateStatus = async function (
-  newStatus,
-  note = "",
-  updatedBy = "system"
-) {
+orderSchema.methods.updateStatus = async function (newStatus, note = "", updatedBy = "system") {
   const oldStatus = this.orderStatus;
 
   this.orderStatus = newStatus;
@@ -669,17 +750,11 @@ orderSchema.methods.updateStatus = async function (
     timestamp: new Date(),
   });
 
-  if (
-    newStatus === "delivered" &&
-    !this.deliveredAt
-  ) {
+  if (newStatus === "delivered" && !this.deliveredAt) {
     this.deliveredAt = new Date();
   }
 
-  if (
-    newStatus === "cancelled" &&
-    !this.cancelledAt
-  ) {
+  if (newStatus === "cancelled" && !this.cancelledAt) {
     this.cancelledAt = new Date();
 
     if (note) {
@@ -695,11 +770,7 @@ orderSchema.methods.updateStatus = async function (
   };
 };
 
-orderSchema.methods.addTracking = async function (
-  courier,
-  trackingNumber,
-  trackingUrl = ""
-) {
+orderSchema.methods.addTracking = async function (courier, trackingNumber, trackingUrl = "") {
   this.trackingInfo = {
     courier,
     trackingNumber,
@@ -712,48 +783,98 @@ orderSchema.methods.addTracking = async function (
   return this.trackingInfo;
 };
 
-orderSchema.methods.getDetailedSummary =
-  function () {
-    return {
-      orderId: this.orderId,
+orderSchema.methods.getDetailedSummary = function () {
+  return {
+    orderId: this.orderId,
 
-      customer: {
-        name: this.user.name,
-        email: this.user.email,
-        phone: this.user.phone,
-      },
+    customer: {
+      name: this.user.name,
+      email: this.user.email,
+      phone: this.user.phone,
+    },
 
-      shipping: {
-        address: this.shippingAddress,
-        area: this.shippingArea,
-        cost: this.shippingCost,
-      },
+    shipping: {
+      address: this.shippingAddress,
+      area: this.shippingArea,
+      cost: this.shippingCost,
+    },
 
-      items: this.items,
+    items: this.items,
 
-      pricing: {
-        subtotal: this.subtotal,
-        discount: this.discount,
-        tax: this.tax,
-        shipping: this.shippingCost,
-        total: this.total,
-      },
+    pricing: {
+      subtotal: this.subtotal,
+      discount: this.totalDiscount,
+      couponApplied: this.couponApplied ? {
+        code: this.couponApplied.code,
+        name: this.couponApplied.name,
+        discountAmount: this.couponApplied.discountAmount,
+      } : null,
+      tax: this.tax,
+      shipping: this.shippingCost,
+      total: this.total,
+    },
 
-      payment: this.payment,
+    payment: this.payment,
 
-      status: {
-        current: this.orderStatus,
-        timeline: this.statusTimeline,
-      },
+    status: {
+      current: this.orderStatus,
+      timeline: this.statusTimeline,
+    },
 
-      tracking: this.trackingInfo,
-    };
+    tracking: this.trackingInfo,
   };
+};
+
+// Remove coupon from order
+orderSchema.methods.removeCoupon = async function () {
+  if (!this.couponApplied) {
+    return { success: false, message: "No coupon applied to this order" };
+  }
+
+  const removedCoupon = this.couponApplied;
+  
+  this.couponApplied = null;
+  this.couponDiscount = 0;
+  this.couponCode = null;
+  
+  // Recalculate total
+  this.total = this.subtotal + this.shippingCost + this.tax - this.additionalDiscount;
+  
+  await this.save();
+  
+  return {
+    success: true,
+    message: "Coupon removed successfully",
+    removedCoupon,
+  };
+};
+
+// Apply coupon to existing order (admin only)
+orderSchema.methods.applyCouponToOrder = async function (coupon, discountAmount) {
+  this.couponApplied = {
+    couponId: coupon._id,
+    code: coupon.code,
+    name: coupon.name,
+    type: coupon.type,
+    value: coupon.value,
+    discountAmount: discountAmount,
+    minPurchase: coupon.minPurchase,
+    maxDiscount: coupon.maxDiscount,
+    appliedAt: new Date(),
+  };
+  
+  this.couponDiscount = discountAmount;
+  this.couponCode = coupon.code;
+  
+  // Recalculate total
+  this.total = this.subtotal + this.shippingCost + this.tax - this.couponDiscount - this.additionalDiscount;
+  
+  await this.save();
+  
+  return this.couponApplied;
+};
 
 // ==========================================
 // EXPORT
 // ==========================================
-module.exports = mongoose.model(
-  "Order",
-  orderSchema
-);
+module.exports = mongoose.model("Order", orderSchema);

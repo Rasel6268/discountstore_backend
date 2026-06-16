@@ -1,11 +1,25 @@
 const express = require("express");
-const {getAllCouponController, createCoupenController } = require("../controllers/Coupon.controller");
+const {
+  getAllCouponsController,
+  createCouponController,
+  validateCouponController,
+  getCouponByIdController,
+  updateCouponController,
+  deleteCouponController,
+  applyCouponController
+} = require("../controllers/Coupon.controller");
 const router = express.Router();
 
-router.post("/create",createCoupenController);
-router.get("/",getAllCouponController);
-// router.get("/:id", getBrandByIdController);
-// router.put("/:id", updateBrandController);
-// router.delete("/:id", deleteBrandController);
+// Public routes
+router.post("/validate", validateCouponController);
+
+// Admin routes (add your auth middleware here)
+router.post("/create", createCouponController);
+router.post("/apply", applyCouponController);
+router.get("/", getAllCouponsController);
+router.get("/:id", getCouponByIdController);
+router.put("/:id", updateCouponController);
+router.delete("/:id", deleteCouponController);
+
 
 module.exports = router;

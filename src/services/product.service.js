@@ -2,17 +2,17 @@ const Product = require("../models/Product");
 
 const createProductSRV = async (body) => {
   try {
-    const { 
-      name, 
-      sku, 
-      regularPrice, 
-      discountPrice, 
-      hasSizes, 
+    const {
+      name,
+      sku,
+      regularPrice,
+      discountPrice,
+      hasSizes,
       sizes,
       hasColors,
-      colors 
+      colors,
     } = body;
-    
+
     // Validate discount price
     if (discountPrice && discountPrice >= regularPrice) {
       return {
@@ -22,7 +22,7 @@ const createProductSRV = async (body) => {
         data: null,
       };
     }
-    
+
     // Validate sizes if enabled
     if (hasSizes && sizes && sizes.length > 0) {
       const sizeValidation = validateSizes(sizes);
@@ -35,7 +35,7 @@ const createProductSRV = async (body) => {
         };
       }
     }
-    
+
     // Validate colors if enabled
     if (hasColors && colors && colors.length > 0) {
       const colorValidation = validateColors(colors);
@@ -48,15 +48,12 @@ const createProductSRV = async (body) => {
         };
       }
     }
-    
+
     // Check for existing product
     const existingProduct = await Product.findOne({
-      $or: [
-        { name: { $regex: new RegExp(`^${name}$`, "i") } }, 
-        { sku: sku }
-      ],
+      $or: [{ name: { $regex: new RegExp(`^${name}$`, "i") } }, { sku: sku }],
     });
-    
+
     if (existingProduct) {
       return {
         success: false,
@@ -65,11 +62,14 @@ const createProductSRV = async (body) => {
         data: null,
       };
     }
-    
+
     // Calculate total quantity based on sizes or colors
     if (hasSizes && sizes && sizes.length > 0) {
-      body.quantity = sizes.reduce((total, size) => total + (size.quantity || 0), 0);
-    } 
+      body.quantity = sizes.reduce(
+        (total, size) => total + (size.quantity || 0),
+        0,
+      );
+    }
     // Create product
     const product = new Product(body);
     await product.save();
@@ -93,34 +93,43 @@ const createProductSRV = async (body) => {
 // Validate colors function
 const validateColors = (colors) => {
   if (!colors || !Array.isArray(colors)) return { valid: true };
-  
+
   const colorIds = new Set();
   const colorNames = new Set();
-  
+
   for (const color of colors) {
     // Check for duplicate color IDs
     if (color._id && colorIds.has(color._id)) {
       return { valid: false, error: `Duplicate color found` };
     }
     if (color._id) colorIds.add(color._id);
-    
+
     // Check for duplicate color names
     if (color.name && colorNames.has(color.name)) {
       return { valid: false, error: `Duplicate color name: ${color.name}` };
     }
     if (color.name) colorNames.add(color.name);
-    
+
     // Validate quantity
     if (color.quantity !== undefined && color.quantity < 0) {
-      return { valid: false, error: `Quantity cannot be negative for color: ${color.name}` };
+      return {
+        valid: false,
+        error: `Quantity cannot be negative for color: ${color.name}`,
+      };
     }
-    
+
     // Validate hex code format (if provided)
-    if (color.hexCode && !/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/.test(color.hexCode)) {
-      return { valid: false, error: `Invalid hex code format for color: ${color.name}` };
+    if (
+      color.hexCode &&
+      !/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/.test(color.hexCode)
+    ) {
+      return {
+        valid: false,
+        error: `Invalid hex code format for color: ${color.name}`,
+      };
     }
   }
-  
+
   return { valid: true };
 };
 
@@ -148,14 +157,14 @@ const getAllProductSRV = async (filters = {}) => {
       query.$or = [
         { name: { $regex: search, $options: "i" } },
         { description: { $regex: search, $options: "i" } },
-        { sku: { $regex: search, $options: "i" } }
+        { sku: { $regex: search, $options: "i" } },
       ];
     }
 
     // Category filter - handle array of category IDs
     if (category) {
-      if (typeof category === 'string' && category.includes(',')) {
-        query.category = { $in: category.split(',') };
+      if (typeof category === "string" && category.includes(",")) {
+        query.category = { $in: category.split(",") };
       } else if (Array.isArray(category)) {
         query.category = { $in: category };
       } else {
@@ -165,8 +174,8 @@ const getAllProductSRV = async (filters = {}) => {
 
     // Brand filter - handle array of brand IDs
     if (brand) {
-      if (typeof brand === 'string' && brand.includes(',')) {
-        query.brand = { $in: brand.split(',') };
+      if (typeof brand === "string" && brand.includes(",")) {
+        query.brand = { $in: brand.split(",") };
       } else if (Array.isArray(brand)) {
         query.brand = { $in: brand };
       } else {
@@ -202,30 +211,29 @@ const getAllProductSRV = async (filters = {}) => {
 
     // Pagination
     const skip = (parseInt(page) - 1) * parseInt(limit);
-    
+
     // Sorting
     let sort = {};
-    switch(sortBy) {
-      case 'price_asc':
+    switch (sortBy) {
+      case "price_asc":
         sort.regularPrice = 1;
         break;
-      case 'price_desc':
+      case "price_desc":
         sort.regularPrice = -1;
         break;
-      case 'newest':
+      case "newest":
         sort.createdAt = -1;
         break;
-      case 'rating_desc':
+      case "rating_desc":
         sort.averageRating = -1;
         break;
-      case 'featured':
+      case "featured":
         sort.isFeatured = -1;
         sort.createdAt = -1;
         break;
       default:
         sort[sortBy] = sortOrder === "desc" ? -1 : 1;
     }
-
 
     const [products, total] = await Promise.all([
       Product.find(query)
@@ -291,17 +299,17 @@ const getProductByIdSRV = async (id) => {
 
 const updateProductSRV = async (id, body) => {
   try {
-    const { 
-      name, 
-      sku, 
-      regularPrice, 
-      discountPrice, 
-      hasSizes, 
+    const {
+      name,
+      sku,
+      regularPrice,
+      discountPrice,
+      hasSizes,
       sizes,
       hasColors,
-      colors 
+      colors,
     } = body;
-    
+
     // Find existing product
     const product = await Product.findById(id);
     if (!product) {
@@ -312,7 +320,7 @@ const updateProductSRV = async (id, body) => {
         data: null,
       };
     }
-    
+
     // Validate discount price
     if (discountPrice && discountPrice >= regularPrice) {
       return {
@@ -322,7 +330,7 @@ const updateProductSRV = async (id, body) => {
         data: null,
       };
     }
-    
+
     // Validate sizes if enabled
     if (hasSizes && sizes && sizes.length > 0) {
       const sizeValidation = validateSizes(sizes);
@@ -335,7 +343,7 @@ const updateProductSRV = async (id, body) => {
         };
       }
     }
-    
+
     // Validate colors if enabled
     if (hasColors && colors && colors.length > 0) {
       const colorValidation = validateColors(colors);
@@ -348,17 +356,19 @@ const updateProductSRV = async (id, body) => {
         };
       }
     }
-    
+
     // Check for duplicate name/SKU (excluding current product)
-    if (name && name !== product.name || sku && sku !== product.sku) {
+    if ((name && name !== product.name) || (sku && sku !== product.sku)) {
       const existingProduct = await Product.findOne({
         $or: [
-          ...(name && name !== product.name ? [{ name: { $regex: new RegExp(`^${name}$`, "i") } }] : []),
-          ...(sku && sku !== product.sku ? [{ sku: sku }] : [])
+          ...(name && name !== product.name
+            ? [{ name: { $regex: new RegExp(`^${name}$`, "i") } }]
+            : []),
+          ...(sku && sku !== product.sku ? [{ sku: sku }] : []),
         ],
-        _id: { $ne: id }
+        _id: { $ne: id },
       });
-      
+
       if (existingProduct) {
         return {
           success: false,
@@ -368,19 +378,22 @@ const updateProductSRV = async (id, body) => {
         };
       }
     }
-    
+
     // Calculate total quantity based on sizes or colors
     if (hasSizes && sizes && sizes.length > 0) {
-      body.quantity = sizes.reduce((total, size) => total + (size.quantity || 0), 0);
-    } 
-    
+      body.quantity = sizes.reduce(
+        (total, size) => total + (size.quantity || 0),
+        0,
+      );
+    }
+
     // Update product
     const updatedProduct = await Product.findByIdAndUpdate(
       id,
       { ...body },
-      { new: true, runValidators: true }
+      { new: true, runValidators: true },
     );
-    
+
     return {
       success: true,
       message: "Product updated successfully",
@@ -429,23 +442,29 @@ const deleteProductSRV = async (id) => {
 
 const validateSizes = (sizes) => {
   if (!sizes || !Array.isArray(sizes)) return { valid: true };
-  
+
   const sizeNames = new Set();
   for (const size of sizes) {
     if (sizeNames.has(size.name)) {
       return { valid: false, error: `Duplicate size name: ${size.name}` };
     }
     sizeNames.add(size.name);
-    
+
     if (size.quantity < 0) {
-      return { valid: false, error: `Quantity cannot be negative for size: ${size.name}` };
+      return {
+        valid: false,
+        error: `Quantity cannot be negative for size: ${size.name}`,
+      };
     }
-    
+
     if (size.extraPrice < 0) {
-      return { valid: false, error: `Extra price cannot be negative for size: ${size.name}` };
+      return {
+        valid: false,
+        error: `Extra price cannot be negative for size: ${size.name}`,
+      };
     }
   }
-  
+
   return { valid: true };
 };
 
@@ -460,8 +479,8 @@ const addSizeToProductSRV = async (productId, sizeData) => {
         data: null,
       };
     }
-    
-    const sizeExists = product.sizes.some(s => s.name === sizeData.name);
+
+    const sizeExists = product.sizes.some((s) => s.name === sizeData.name);
     if (sizeExists) {
       return {
         success: false,
@@ -470,17 +489,20 @@ const addSizeToProductSRV = async (productId, sizeData) => {
         data: null,
       };
     }
-    
+
     if (!sizeData.sku) {
       sizeData.sku = `${product.sku}-${sizeData.name.toUpperCase()}`;
     }
-    
+
     product.sizes.push(sizeData);
     product.hasSizes = true;
-    product.quantity = product.sizes.reduce((total, s) => total + s.quantity, 0);
-    
+    product.quantity = product.sizes.reduce(
+      (total, s) => total + s.quantity,
+      0,
+    );
+
     await product.save();
-    
+
     return {
       success: true,
       message: "Size added successfully",
@@ -508,8 +530,8 @@ const updateSizeQuantitySRV = async (productId, sizeName, quantity) => {
         data: null,
       };
     }
-    
-    const sizeIndex = product.sizes.findIndex(s => s.name === sizeName);
+
+    const sizeIndex = product.sizes.findIndex((s) => s.name === sizeName);
     if (sizeIndex === -1) {
       return {
         success: false,
@@ -518,12 +540,15 @@ const updateSizeQuantitySRV = async (productId, sizeName, quantity) => {
         data: null,
       };
     }
-    
+
     product.sizes[sizeIndex].quantity = quantity;
-    product.quantity = product.sizes.reduce((total, s) => total + s.quantity, 0);
-    
+    product.quantity = product.sizes.reduce(
+      (total, s) => total + s.quantity,
+      0,
+    );
+
     await product.save();
-    
+
     return {
       success: true,
       message: "Size quantity updated successfully",
@@ -551,17 +576,20 @@ const removeSizeFromProductSRV = async (productId, sizeName) => {
         data: null,
       };
     }
-    
-    product.sizes = product.sizes.filter(s => s.name !== sizeName);
-    
+
+    product.sizes = product.sizes.filter((s) => s.name !== sizeName);
+
     if (product.sizes.length === 0) {
       product.hasSizes = false;
     }
-    
-    product.quantity = product.sizes.reduce((total, s) => total + s.quantity, 0);
-    
+
+    product.quantity = product.sizes.reduce(
+      (total, s) => total + s.quantity,
+      0,
+    );
+
     await product.save();
-    
+
     return {
       success: true,
       message: "Size removed successfully",
@@ -580,7 +608,9 @@ const removeSizeFromProductSRV = async (productId, sizeName) => {
 
 const getProductSizesSRV = async (productId) => {
   try {
-    const product = await Product.findById(productId).select('sizes hasSizes name');
+    const product = await Product.findById(productId).select(
+      "sizes hasSizes name",
+    );
     if (!product) {
       return {
         success: false,
@@ -589,14 +619,14 @@ const getProductSizesSRV = async (productId) => {
         data: null,
       };
     }
-    
+
     const groupedSizes = {
-      men: product.sizes.filter(s => s.type === 'men' && s.isActive),
-      women: product.sizes.filter(s => s.type === 'women' && s.isActive),
-      unisex: product.sizes.filter(s => s.type === 'unisex' && s.isActive),
-      kids: product.sizes.filter(s => s.type === 'kids' && s.isActive),
+      men: product.sizes.filter((s) => s.type === "men" && s.isActive),
+      women: product.sizes.filter((s) => s.type === "women" && s.isActive),
+      unisex: product.sizes.filter((s) => s.type === "unisex" && s.isActive),
+      kids: product.sizes.filter((s) => s.type === "kids" && s.isActive),
     };
-    
+
     return {
       success: true,
       data: {
@@ -608,6 +638,101 @@ const getProductSizesSRV = async (productId) => {
       statusCode: 200,
     };
   } catch (error) {
+    return {
+      success: false,
+      error: error.message,
+      statusCode: 500,
+      data: null,
+    };
+  }
+};
+const addProductReviewSRV = async (data) => {
+  const {Product_id, userId, userName, rating, comment} = data
+  console.log(Product_id)
+  try {
+    // Validate inputs
+    if (!rating || rating < 1 || rating > 5) {
+      return {
+        success: false,
+        error: "Rating must be between 1 and 5",
+        statusCode: 400,
+        data: null,
+      };
+    }
+
+    if (!comment || comment.trim().length < 10) {
+      return {
+        success: false,
+        error: "Review must be at least 10 characters",
+        statusCode: 400,
+        data: null,
+      };
+    }
+
+    const product = await Product.findById(Product_id);
+    if (!product) {
+      return {
+        success: false,
+        error: "Product not found",
+        statusCode: 404,
+        data: null,
+      };
+    }
+
+    // Check if user already reviewed
+    const existingReview = product.reviews.find(
+      (review) => review.user && review.user.userId && review.user.userId.toString() === userId.toString()
+    );
+
+    if (existingReview) {
+      return {
+        success: false,
+        error: "You have already reviewed this product",
+        statusCode: 400,
+        data: null,
+      };
+    }
+
+    // Create review object matching your schema
+    const newReview = {
+      user: {
+        userId: userId,
+        name: userName,
+      },
+      rating: Number(rating), // Ensure rating is a number
+      comment: comment.trim(),
+      verifiedPurchase: false,
+    };
+
+    // Add review to product
+    product.reviews.push(newReview);
+    
+    // Save product (this will trigger the pre-save middleware to update ratings)
+    await product.save();
+
+    // Get the newly added review
+    const addedReview = product.reviews[product.reviews.length - 1];
+
+    return {
+      success: true,
+      message: "Review added successfully",
+      data: {
+        averageRating: product.averageRating,
+        totalReviews: product.totalReviews,
+        review: {
+          user: {
+            name: addedReview.user.name,
+          },
+          rating: addedReview.rating,
+          comment: addedReview.comment,
+          verifiedPurchase: addedReview.verifiedPurchase,
+          createdAt: addedReview.createdAt,
+        },
+      },
+      statusCode: 201,
+    };
+  } catch (error) {
+    console.error("Error adding review:", error);
     return {
       success: false,
       error: error.message,
@@ -628,4 +753,5 @@ module.exports = {
   updateSizeQuantitySRV,
   removeSizeFromProductSRV,
   getProductSizesSRV,
+  addProductReviewSRV,
 };

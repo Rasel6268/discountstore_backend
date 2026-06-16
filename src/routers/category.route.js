@@ -8,6 +8,7 @@ const {
   createSubCategory,
   getCategoryById,
   updateCategory,
+  getCategoriesWithProductCounts
 } = require("../controllers/category.controller");
 const verifyToken = require("../middleware/verifyToken");
 const AdminVerify = require("../middleware/AdminVerify");
@@ -22,6 +23,7 @@ router.post("/sub/:parentId", verifyToken, AdminVerify, createSubCategory);
 
 // General category routes
 router.get("/", getAllCategories);
+router.get("/with-counts",getCategoriesWithProductCounts)
 router.get("/:id", getCategoryById);
 router.put("/:id", verifyToken, AdminVerify, updateCategory);
 router.delete("/:id", verifyToken, AdminVerify, deleteCategory);

@@ -95,8 +95,12 @@ const couponSchema = new mongoose.Schema({
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Order'
     },
+
     discountAmount: Number
   }],
+  orderNumber:{
+
+  },
   createdAt: {
     type: Date,
     default: Date.now

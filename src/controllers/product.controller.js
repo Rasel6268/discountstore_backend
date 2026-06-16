@@ -7,6 +7,7 @@ const {
   removeSizeFromProductSRV,
   getProductSizesSRV,
   updateProductSRV,
+  addProductReviewSRV
 } = require("../services/product.service");
 
 const createProduct = async (req, res) => {
@@ -143,57 +144,29 @@ const getProductSizes = async (req, res) => {
     });
   }
 };
-const addReviewController = async (req, res) => {
+const addProductReview = async (req, res) => {
   try {
     const { id } = req.params;
     const { rating, comment } = req.body;
-
-    const product = await Product.findById(id);
-
-    if (!product) {
-      return res.status(404).json({ message: "Product not found" });
+    const userId = req.user._id;
+    const userName = req.user.name;
+    const reviewData = {
+     Product_id: id,
+      userId,
+      userName,
+      rating,
+      comment
     }
-
-    // prevent duplicate review
-    const alreadyReviewed = product.reviews.find(
-      (r) => r.user.userId.toString() === req.user.id
-    );
-
-    if (alreadyReviewed) {
-      return res.status(400).json({
-        message: "You already reviewed this product",
-      });
-    }
-
-    const review = {
-      user: {
-        userId: req.user.id,
-        name: req.user.name,
-      },
-      rating: Number(rating),
-      comment,
-      verifiedPurchase: true, // you can replace with order check later
-    };
-
-    product.reviews.push(review);
-
-    // UPDATE STATS
-    product.totalReviews = product.reviews.length;
-
-    product.averageRating =
-      product.reviews.reduce((acc, r) => acc + r.rating, 0) /
-      product.reviews.length;
-
-    await product.save();
-
-    res.status(201).json({
-      success: true,
-      message: "Review added successfully",
-      data: review,
-    });
+  
+    const result = await addProductReviewSRV(reviewData);
+    
+    return res.status(result.statusCode).json(result);
   } catch (error) {
-    console.log(error);
-    res.status(500).json({ message: "Server error" });
+    console.error("Controller error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };
 
@@ -207,5 +180,5 @@ module.exports = {
   updateSizeQuantity,
   removeSizeFromProduct,
   getProductSizes,
-  addReviewController
+  addProductReview
 };

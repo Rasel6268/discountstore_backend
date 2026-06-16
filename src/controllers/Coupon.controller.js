@@ -1,7 +1,14 @@
-const { getAllBrandServices } = require("../services/brand.service");
-const { createCouponService, getAllCoupons } = require("../services/coupon.service");
+const {
+  createCouponService,
+  getAllCoupons,
+  validateCouponService,
+  applyCouponService,
+  getCouponByIdService,
+  updateCouponService,
+  deleteCouponService,
+} = require("../services/coupon.service");
 
-const createCoupenController = async (req, res) => {
+const createCouponController = async (req, res) => {
   try {
     const result = await createCouponService(req.body);
 
@@ -18,7 +25,6 @@ const createCoupenController = async (req, res) => {
       message: result.message,
       data: result.data,
     });
-
   } catch (error) {
     return res.status(500).json({
       success: false,
@@ -27,30 +33,134 @@ const createCoupenController = async (req, res) => {
     });
   }
 };
-const getAllCouponController = async(req,res) => {
-    try {
-         const { status, type, search, page, limit } = req.query;
-  const result = await getAllCoupons({
-        status,
-        type,
-        search,
-        page: parseInt(page),
-        limit: parseInt(limit)
-      })
 
-      res.status(200).json({
-        success: true,
-        ...result
-      });
-    } catch (error) {
-         res.status(400).json({
+const getAllCouponsController = async (req, res) => {
+  try {
+    const { status, type, search, page, limit } = req.query;
+    const result = await getAllCoupons({
+      status,
+      type,
+      search,
+      page: parseInt(page),
+      limit: parseInt(limit),
+    });
+
+    res.status(200).json({
+      success: true,
+      coupons: result.coupons,
+      pagination: result.pagination,
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+const validateCouponController = async (req, res) => {
+  try {
+    const { code, subtotal, userId } = req.body;
+
+    if (!code) {
+      return res.status(400).json({
         success: false,
-        message: error.message
+        message: "Coupon code is required",
       });
     }
-}
+
+    const result = await validateCouponService(code, subtotal, userId);
+
+    if (!result.success) {
+      return res.status(400).json(result);
+    }
+
+    return res.status(200).json(result);
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to validate coupon",
+    });
+  }
+};
+
+const applyCouponController = async (req, res) => {
+  try {
+    const result = await applyCouponService(req.body);
+
+    if (!result.success) {
+      return res.status(400).json(result);
+    }
+
+    return res.status(200).json(result);
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to apply coupon",
+    });
+  }
+};
+
+const getCouponByIdController = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await getCouponByIdService(id);
+
+    if (!result.success) {
+      return res.status(404).json(result);
+    }
+
+    return res.status(200).json(result);
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to retrieve coupon",
+    });
+  }
+};
+
+const updateCouponController = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await updateCouponService(id, req.body);
+
+    if (!result.success) {
+      return res.status(400).json(result);
+    }
+
+    return res.status(200).json(result);
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to update coupon",
+    });
+  }
+};
+
+const deleteCouponController = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await deleteCouponService(id);
+
+    if (!result.success) {
+      return res.status(404).json(result);
+    }
+
+    return res.status(200).json(result);
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to delete coupon",
+    });
+  }
+};
 
 module.exports = {
-  createCoupenController,
-  getAllCouponController
+  createCouponController,
+  getAllCouponsController,
+  validateCouponController,
+  applyCouponController,
+  getCouponByIdController,
+  updateCouponController,
+  deleteCouponController,
 };

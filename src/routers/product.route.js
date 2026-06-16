@@ -9,7 +9,7 @@ const {
   updateSizeQuantity,
   removeSizeFromProduct,
   getProductSizes,
-  addReviewController,
+  addProductReview,
 } = require("../controllers/product.controller");
 const verifyToken = require("../middleware/verifyToken");
 
@@ -24,6 +24,7 @@ router.post('/:id/sizes', addSizeToProduct);
 router.get('/:id/sizes', getProductSizes);
 router.put('/:id/sizes/:sizeName/quantity', updateSizeQuantity);
 router.delete('/:id/sizes/:sizeName', removeSizeFromProduct);
-router.post("/:id/reviews", verifyToken, addReviewController);
+router.post("/:id/reviews", verifyToken,addProductReview);
+
 
 module.exports = router;

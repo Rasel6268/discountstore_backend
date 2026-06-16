@@ -30,6 +30,10 @@ class CategoryController {
 
     res.status(200).json(result.data);
   }
+  async getCategoriesWithProductCounts (req,res) {
+   const result = await service.getCategoriesWithProductCounts()
+    res.status(200).json(result.data);
+  }
 
   async getCategoryById(req, res) {
     const result = await service.getCategoryById(req.params.id);
