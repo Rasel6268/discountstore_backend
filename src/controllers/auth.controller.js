@@ -16,13 +16,13 @@ const register = async (req, res) => {
   const { name, email, password } = req.body;
 
   if (!name || !email || !password) {
-    return res.status(400).json({ error: "All fields are required" });
+    return res.status(400).json({ success: false, message: "All fields are required" });
   }
 
   try {
     const result = await RegisterService(req.body);
 
-    if (result.error) {
+    if (!result.success) {
       if (result.type === "DUPLICATE_ERROR") {
         return res.status(409).json(result);
       }
@@ -30,9 +30,9 @@ const register = async (req, res) => {
     }
 
     return res.status(201).json(result);
+
   } catch (err) {
-    console.error(err);
-    return res.status(500).json({ error: "Server error" });
+    return res.status(500).json({ success: false, message: "Server error" });
   }
 };
 /**
@@ -41,6 +41,7 @@ const register = async (req, res) => {
  * @access Public
  */
 const login = async (req, res) => {
+  
   try {
     const result = await LoginService(req.body);
 

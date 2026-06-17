@@ -1,29 +1,41 @@
 const User = require("../models/User");
-const bcrypt = require("bcrypt");
+const bcrypt = require("bcryptjs")
 const jwt = require("jsonwebtoken");
 const cookies = require("cookie-parser");
 
-const RegisterService = async (req, res) => {
-  const { name, email, password } = req.body;
-
-  if (!name || !email || !password) {
-    return res.status(400).json({ error: "All fields are required" });
-  }
+const RegisterService = async (registerData) => {
+  const { name, email, password } = registerData;
 
   try {
-    const result = await RegisterService(req.body);
-
-    if (result.error) {
-      if (result.type === "DUPLICATE_ERROR") {
-        return res.status(409).json(result);
-      }
-      return res.status(400).json(result);
+    // check existing user
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return { error: "Email already exists" };
     }
 
-    return res.status(201).json(result);
-  } catch (err) {
-    console.error(err);
-    return res.status(500).json({ error: "Server error" });
+    // hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // create user
+    const newUser = await User.create({
+      name,
+      email,
+      password: hashedPassword,
+      role: "user",
+    });
+
+    
+    
+
+    return {
+      user: {
+        id: newUser._id,
+        name: newUser.name,
+        email: newUser.email,
+      },
+    };
+  } catch (error) {
+    return { error: "Registration failed", details: error.message };
   }
 };
 const LoginService = async (body) => {
@@ -34,13 +46,13 @@ const LoginService = async (body) => {
   if (!findUser) {
     return { error: "Invalid email or password" };
   }
-  //compares the password with the hashed password in the database
-  const isMatchPass = await bcrypt.compare(password, findUser.password);
-  if (!isMatchPass) {
-    return { error: "Invalid email or password" };
-  }
+  
+  const isMatchPass = await bcrypt.compare(
+    password.trim(),
+    findUser.password.trim()
+  );
 
-  //generates a JWT token for the authenticated user
+
   const token = jwt.sign(
     {
       id: findUser._id,
