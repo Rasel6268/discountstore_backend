@@ -17,9 +17,9 @@ const sizeSchema = new mongoose.Schema({
   },
   quantity: { type: Number, default: 0, min: 0 },
   extraPrice: { type: Number, default: 0, min: 0 },
-  sku: String,
   isActive: { type: Boolean, default: true },
 });
+
 
 // ================= REVIEW =================
 const reviewSchema = new mongoose.Schema(
@@ -38,55 +38,269 @@ const reviewSchema = new mongoose.Schema(
 // ================= PRODUCT =================
 const productSchema = new mongoose.Schema(
   {
-    name: { type: String, required: true, unique: true },
-    slug: { type: String, unique: true },
+    // ===== BASIC INFORMATION =====
+    name: { 
+      type: String, 
+      required: true, 
+      unique: true,
+      trim: true,
+      index: true 
+    },
+    slug: { 
+      type: String, 
+      unique: true,
+      index: true 
+    },
+    description: { 
+      type: String, 
+      required: true 
+    },
+    shortDescription: { 
+      type: String,
+      maxlength: 500 
+    },
 
-    description: { type: String, required: true },
-    shortDescription: String,
+    // ===== PRICING =====
+    regularPrice: { 
+      type: Number, 
+      required: true, 
+      min: 0 
+    },
+    discountPrice: { 
+      type: Number, 
+      min: 0 
+    },
+    discountPercentage: { 
+      type: Number, 
+      min: 0, 
+      max: 100,
+      default: 0 
+    },
+    costPerItem: { 
+      type: Number, 
+      min: 0 
+    },
+    profitMargin: { 
+      type: Number, 
+      min: 0, 
+      max: 100,
+      default: 0 
+    },
 
-    regularPrice: { type: Number, required: true },
-    discountPrice: Number,
+    // ===== CATEGORIZATION =====
+    category: { 
+      type: mongoose.Schema.Types.ObjectId, 
+      ref: "Category",
+      required: true,
+      index: true 
+    },
+    subcategory: { 
+      type: mongoose.Schema.Types.ObjectId, 
+      ref: "Subcategory",
+      index: true 
+    },
+    brand: { 
+      type: mongoose.Schema.Types.ObjectId, 
+      ref: "Brand",
+      index: true 
+    },
 
-    category: { type: mongoose.Schema.Types.ObjectId, ref: "Category" },
-    brand: { type: mongoose.Schema.Types.ObjectId, ref: "Brand" },
+    // ===== INVENTORY =====
+    sku: { 
+      type: String, 
+      required: true, 
+      unique: true,
+      index: true 
+    },
+    quantity: { 
+      type: Number, 
+      default: 0, 
+      min: 0 
+    },
+    lowStockThreshold: { 
+      type: Number, 
+      default: 10, 
+      min: 0 
+    },
+    trackInventory: { 
+      type: Boolean, 
+      default: true 
+    },
+    allowBackorder: { 
+      type: Boolean, 
+      default: false 
+    },
 
-    sku: { type: String, required: true, unique: true },
+    // ===== SALES TRACKING =====
+    totalSold: { 
+      type: Number, 
+      default: 0, 
+      min: 0 
+    },
 
-    quantity: { type: Number, default: 0 },
-
-    hasSizes: { type: Boolean, default: false },
-    hasColors: { type: Boolean, default: false },
-
+    // ===== SIZE & COLOR =====
+    hasSizes: { 
+      type: Boolean, 
+      default: false 
+    },
+    hasColors: { 
+      type: Boolean, 
+      default: false 
+    },
     sizes: [sizeSchema],
     colors: [colorSchema],
 
-    images: [{ url: String, alt: String }],
 
+    // ===== MEDIA =====
+    images: [{
+      url: { 
+        type: String, 
+        required: true 
+      },
+      alt: { 
+        type: String,
+        default: ""
+      },
+      isPrimary: { 
+        type: Boolean, 
+        default: false 
+      }
+    }],
+
+    // ===== REVIEWS =====
     reviews: [reviewSchema],
+    averageRating: { 
+      type: Number, 
+      default: 0, 
+      min: 0, 
+      max: 5 
+    },
+    totalReviews: { 
+      type: Number, 
+      default: 0, 
+      min: 0 
+    },
 
-    averageRating: { type: Number, default: 0 },
-    totalReviews: { type: Number, default: 0 },
+    // ===== STATUS FLAGS =====
+    isActive: { 
+      type: Boolean, 
+      default: true,
+      index: true 
+    },
+    isFeatured: { 
+      type: Boolean, 
+      default: false,
+      index: true 
+    },
+    isPremium: { 
+      type: Boolean, 
+      default: false 
+    },
+    isBest: { 
+      type: Boolean, 
+      default: false 
+    },
+    isPublished: { 
+      type: Boolean, 
+      default: false,
+      index: true 
+    },
+    isFreeShipping: { 
+      type: Boolean, 
+      default: false 
+    },
+    status: { 
+      type: String, 
+      enum: ["active", "inactive", "draft", "archived"], 
+      default: "draft",
+      index: true 
+    },
 
-    isActive: { type: Boolean, default: true },
+  
   },
-  { timestamps: true },
+  { 
+    timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true }
+  }
 );
 
-// ================= SLUG =================
+
+// ================= VIRTUALS =================
+// Virtual: Calculate discount percentage
+productSchema.virtual("calculatedDiscountPercentage").get(function() {
+  if (!this.discountPrice || this.discountPrice >= this.regularPrice) return 0;
+  return Math.round(((this.regularPrice - this.discountPrice) / this.regularPrice) * 100);
+});
+
+// Virtual: Check if product is in stock
+productSchema.virtual("inStock").get(function() {
+  return this.quantity > 0;
+});
+
+// Virtual: Check if product is low in stock
+productSchema.virtual("isLowStock").get(function() {
+  return this.quantity > 0 && this.quantity <= this.lowStockThreshold;
+});
+
+// Virtual: Get total available quantity across variants
+productSchema.virtual("totalVariantQuantity").get(function() {
+  if (!this.variants || this.variants.length === 0) return this.quantity;
+  return this.variants.reduce((total, variant) => total + variant.quantity, 0);
+});
+
+
 productSchema.pre("save", async function () {
+  // Generate slug if name is modified
   if (this.isModified("name")) {
     this.slug = slugify(this.name);
   }
 
-  // auto calculate rating
-  if (this.reviews.length > 0) {
-    this.totalReviews = this.reviews.length;
-    this.averageRating =
-      this.reviews.reduce((acc, r) => acc + r.rating, 0) / this.reviews.length;
+  // Auto-calculate discount percentage
+  if (this.discountPrice && this.discountPrice < this.regularPrice) {
+    this.discountPercentage = Math.round(
+      ((this.regularPrice - this.discountPrice) / this.regularPrice) * 100
+    );
   } else {
-    this.totalReviews = 0;
-    this.averageRating = 0;
+    this.discountPercentage = 0;
+  }
+
+  // Auto-calculate profit margin
+  if (this.costPerItem && this.regularPrice) {
+    this.profitMargin = Math.round(
+      ((this.regularPrice - this.costPerItem) / this.regularPrice) * 100
+    );
   }
 });
 
+
+
+// ================= METHODS =================
+// Instance method: Check if product has enough stock
+productSchema.methods.hasEnoughStock = function(quantity) {
+  return this.quantity >= quantity;
+};
+
+// Instance method: Reduce stock
+productSchema.methods.reduceStock = function(quantity) {
+  if (!this.hasEnoughStock(quantity)) {
+    throw new Error("Insufficient stock");
+  }
+  this.quantity -= quantity;
+  this.totalSold += quantity;
+};
+
+// Instance method: Increase stock
+productSchema.methods.increaseStock = function(quantity) {
+  this.quantity += quantity;
+};
+
+// Instance method: Add review
+productSchema.methods.addReview = function(reviewData) {
+  this.reviews.push(reviewData);
+  this.totalReviews = this.reviews.length;
+  this.averageRating = 
+    this.reviews.reduce((acc, r) => acc + r.rating, 0) / this.reviews.length;
+};
+// ================= EXPORT =================
 module.exports = mongoose.model("Product", productSchema);

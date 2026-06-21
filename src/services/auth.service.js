@@ -7,16 +7,18 @@ const RegisterService = async (registerData) => {
   const { name, email, password } = registerData;
 
   try {
-    // check existing user
     const existingUser = await User.findOne({ email });
+
     if (existingUser) {
-      return { error: "Email already exists" };
+      return {
+        success: false,
+        type: "DUPLICATE_ERROR",
+        message: "Email already exists",
+      };
     }
 
-    // hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // create user
     const newUser = await User.create({
       name,
       email,
@@ -24,10 +26,9 @@ const RegisterService = async (registerData) => {
       role: "user",
     });
 
-    
-    
-
     return {
+      success: true,
+      message: "Registration successful",
       user: {
         id: newUser._id,
         name: newUser.name,
@@ -35,7 +36,11 @@ const RegisterService = async (registerData) => {
       },
     };
   } catch (error) {
-    return { error: "Registration failed", details: error.message };
+    return {
+      success: false,
+      message: "Registration failed",
+      error: error.message,
+    };
   }
 };
 const LoginService = async (body) => {

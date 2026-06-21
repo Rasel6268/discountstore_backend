@@ -12,14 +12,15 @@ const {
   addProductReview,
 } = require("../controllers/product.controller");
 const verifyToken = require("../middleware/verifyToken");
+const AdminVerify = require("../middleware/AdminVerify");
 
 const router = express.Router();
 
-router.post("/", createProduct);
+router.post("/", createProduct,verifyToken,AdminVerify);
 router.get("/", getAllProduct);
 router.get("/:id", getProductById);
-router.put("/:id", updateProduct);
-router.delete("/:id", deleteProduct);
+router.put("/:id", updateProduct,verifyToken,AdminVerify);
+router.delete("/:id",verifyToken,AdminVerify ,deleteProduct);
 router.post('/:id/sizes', addSizeToProduct);
 router.get('/:id/sizes', getProductSizes);
 router.put('/:id/sizes/:sizeName/quantity', updateSizeQuantity);
