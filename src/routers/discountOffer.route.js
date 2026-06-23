@@ -9,4 +9,5 @@ router.get('/', getDiscountController);
 router.get('/active', getActiveDiscountsController);
 
 
+
 module.exports = router
