@@ -1,32 +1,31 @@
-// models/size.model.js
 const mongoose = require("mongoose");
 
-const sizeSchema = mongoose.Schema(
+const sizeItemSchema = new mongoose.Schema({
+  size: {
+    type: String,
+    required: [true, "Size name is required"],
+    trim: true,
+  },
+  extraPrice: {
+    type: Number,
+    default: 0,
+    min: [0, "Extra price cannot be negative"],
+  }
+});
+
+const sizeGroupSchema = new mongoose.Schema(
   {
-    name: {
-      type: String,
-      required: [true, "Size name is required"],
-      trim: true,
-    },
-    type: {
+    SizeType: {
       type: String,
       required: [true, "Size type is required"],
-      enum: ["mens", "womens", "unisex", "kids"],
-      default: "mens",
+      enum: ["Men's", "Women's", "Unisex", "Kids"],
+      default: "Men's",
     },
-    isActive: {
-      type: Boolean,
-      default: true,
-    },
-    extraPrice: {
-      type: Number,
-      default: 0,
-      min: [0, "Extra price cannot be negative"],
-    },
+    size: [sizeItemSchema],
   },
   {
     timestamps: true,
   },
 );
 
-module.exports = mongoose.model("Size", sizeSchema);
+module.exports = mongoose.model("Size", sizeGroupSchema);

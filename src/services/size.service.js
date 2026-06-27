@@ -1,106 +1,247 @@
 const Size = require("../models/Size");
 
-const createSizeService = async (sizeData) => {
+// Create a new size group
+const createSizeGroupService = async (groupData) => {
   try {
-    const existingSize = await Size.findOne({ name: sizeData.name });
-    if (existingSize) {
+    // Check if SizeType already exists
+    const existingGroup = await Size.findOne({ SizeType: groupData.SizeType });
+    if (existingGroup) {
       return {
         success: false,
-        message: "Size with this name already exists",
+        message: "Size type already exists",
       };
     }
-    const newSize = new Size(sizeData);
-    await newSize.save();
+
+    const newGroup = new Size(groupData);
+    await newGroup.save();
     return {
       success: true,
-      message: "Size create successfull",
-      newSize,
+      message: "Size group created successfully",
+      data: newGroup,
     };
   } catch (error) {
     return {
       success: false,
+      message: error.message || "Failed to create size group",
     };
   }
 };
+
+// Get all size groups
 const getAllSizesService = async () => {
-    try {
-        const sizes = await Size.find().sort({ createdAt: -1 });
-        return {
-            success: true,
-            data: sizes
-        };
-    } catch (error) {
-        return {
-            success: false,
-            message: error.message || "Failed to fetch sizes"
-        };
-    }
+  try {
+    const sizes = await Size.find().sort({ createdAt: -1 });
+    return {
+      success: true,
+      data: sizes,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.message || "Failed to fetch sizes",
+    };
+  }
 };
-const updateSizeService = async (id, updateData) => {
-    try {
-        const size = await Size.findById(id);
-        if (!size) {
-            return {
-                success: false,
-                message: "Size not found"
-            };
-        }
 
-        // Check for duplicate name (excluding current size)
-        if (updateData.name && updateData.name !== size.name) {
-            const existingSize = await Size.findOne({ name: updateData.name });
-            if (existingSize) {
-                return {
-                    success: false,
-                    message: "Size with this name already exists"
-                };
-            }
-        }
-
-        const updatedSize = await Size.findByIdAndUpdate(
-            id,
-            updateData,
-            { new: true, runValidators: true }
-        );
-
-        return {
-            success: true,
-            message: "Size updated successfully",
-            data: updatedSize
-        };
-    } catch (error) {
-        return {
-            success: false,
-            message: error.message || "Failed to update size"
-        };
+// Add size to existing group
+const addSizeToGroupService = async (sizeType, sizeName, extraPrice = 0) => {
+  try {
+    const sizeGroup = await Size.findOne({ SizeType: sizeType });
+    if (!sizeGroup) {
+      return {
+        success: false,
+        message: "Size type not found",
+      };
     }
-};
-const deleteSizeService = async (id) => {
-    try {
-        const size = await Size.findById(id);
-        if (!size) {
-            return {
-                success: false,
-                message: "Size not found"
-            };
-        }
 
-        await Size.findByIdAndDelete(id);
-        
-        return {
-            success: true,
-            message: "Size deleted successfully"
-        };
-    } catch (error) {
-        return {
-            success: false,
-            message: error.message || "Failed to delete size"
-        };
+    // Check if size already exists
+    const sizeExists = sizeGroup.size.some((item) => item.size === sizeName);
+    if (sizeExists) {
+      return {
+        success: false,
+        message: "Size already exists in this group",
+      };
     }
+
+    sizeGroup.size.push({ size: sizeName, extraPrice });
+    await sizeGroup.save();
+
+    return {
+      success: true,
+      message: "Size added to group successfully",
+      data: sizeGroup,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.message || "Failed to add size to group",
+    };
+  }
 };
+
+// Update size in group
+const updateSizeInGroupService = async (sizeType, oldSizeName, sizeData) => {
+  try {
+    const sizeGroup = await Size.findOne({ SizeType: sizeType });
+    if (!sizeGroup) {
+      return {
+        success: false,
+        message: "Size type not found",
+      };
+    }
+
+    // Find the size index
+    const sizeIndex = sizeGroup.size.findIndex((item) => item.size === oldSizeName);
+    if (sizeIndex === -1) {
+      return {
+        success: false,
+        message: "Size not found in this group",
+      };
+    }
+
+    // Check if new size name conflicts with existing (only if name is being changed)
+    if (oldSizeName !== sizeData.size) {
+      const sizeExists = sizeGroup.size.some(
+        (item) => item.size === sizeData.size
+      );
+      if (sizeExists) {
+        return {
+          success: false,
+          message: "Size name already exists in this group",
+        };
+      }
+    }
+
+    // Update the size
+    sizeGroup.size[sizeIndex] = {
+      size: sizeData.size,
+      extraPrice: sizeData.extraPrice || 0,
+    };
+    await sizeGroup.save();
+
+    return {
+      success: true,
+      message: "Size updated successfully",
+      data: sizeGroup,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.message || "Failed to update size",
+    };
+  }
+};
+
+// Remove size from group
+const removeSizeFromGroupService = async (sizeType, sizeName) => {
+  try {
+    const sizeGroup = await Size.findOne({ SizeType: sizeType });
+    if (!sizeGroup) {
+      return {
+        success: false,
+        message: "Size type not found",
+      };
+    }
+
+    // Filter out the size
+    const initialLength = sizeGroup.size.length;
+    sizeGroup.size = sizeGroup.size.filter((item) => item.size !== sizeName);
+
+    if (sizeGroup.size.length === initialLength) {
+      return {
+        success: false,
+        message: "Size not found in this group",
+      };
+    }
+
+    await sizeGroup.save();
+
+    return {
+      success: true,
+      message: "Size removed from group successfully",
+      data: sizeGroup,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.message || "Failed to remove size from group",
+    };
+  }
+};
+
+// Update entire size group
+const updateSizeGroupService = async (id, updateData) => {
+  try {
+    const sizeGroup = await Size.findById(id);
+    if (!sizeGroup) {
+      return {
+        success: false,
+        message: "Size group not found",
+      };
+    }
+
+    // Check for duplicate SizeType (excluding current group)
+    if (updateData.SizeType && updateData.SizeType !== sizeGroup.SizeType) {
+      const existingGroup = await Size.findOne({
+        SizeType: updateData.SizeType,
+      });
+      if (existingGroup) {
+        return {
+          success: false,
+          message: "Size type already exists",
+        };
+      }
+    }
+
+    const updatedGroup = await Size.findByIdAndUpdate(id, updateData, {
+      new: true,
+      runValidators: true,
+    });
+
+    return {
+      success: true,
+      message: "Size group updated successfully",
+      data: updatedGroup,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.message || "Failed to update size group",
+    };
+  }
+};
+
+// Delete entire size group
+const deleteSizeGroupService = async (id) => {
+  try {
+    const sizeGroup = await Size.findById(id);
+    if (!sizeGroup) {
+      return {
+        success: false,
+        message: "Size group not found",
+      };
+    }
+
+    await Size.findByIdAndDelete(id);
+
+    return {
+      success: true,
+      message: "Size group deleted successfully",
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.message || "Failed to delete size group",
+    };
+  }
+};
+
 module.exports = {
-  createSizeService,
+  createSizeGroupService,
   getAllSizesService,
-  updateSizeService,
-  deleteSizeService
+  addSizeToGroupService,
+  updateSizeInGroupService,
+  removeSizeFromGroupService,
+  updateSizeGroupService,
+  deleteSizeGroupService,
 };
