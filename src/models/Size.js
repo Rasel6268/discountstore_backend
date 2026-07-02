@@ -16,10 +16,8 @@ const sizeItemSchema = new mongoose.Schema({
 const sizeGroupSchema = new mongoose.Schema(
   {
     SizeType: {
-      type: String,
-      required: [true, "Size type is required"],
-      enum: ["Men's", "Women's", "Unisex", "Kids"],
-      default: "Men's",
+        type: String,
+        enum: ["Men's", "Women's", "Unisex", "Kids"]
     },
     size: [sizeItemSchema],
   },

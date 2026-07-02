@@ -14,8 +14,8 @@ const orderItemSizeSchema = new mongoose.Schema(
 
     type: {
       type: String,
-      enum: ["men", "women", "unisex", "kids"],
-      default: "unisex",
+      enum: ["Men's", "Women's", "Unisex", "Kids"],
+      default: "Men's",
     },
 
     extraPrice: {
@@ -29,7 +29,7 @@ const orderItemSizeSchema = new mongoose.Schema(
       trim: true,
     },
   },
-  { _id: false }
+  { _id: false },
 );
 
 // ==========================================
@@ -54,7 +54,7 @@ const orderItemColorSchema = new mongoose.Schema(
       trim: true,
     },
   },
-  { _id: false }
+  { _id: false },
 );
 
 // ==========================================
@@ -106,7 +106,7 @@ const orderItemSchema = new mongoose.Schema(
       min: 0,
     },
   },
-  { _id: false }
+  { _id: false },
 );
 
 // ==========================================
@@ -156,7 +156,7 @@ const shippingAddressSchema = new mongoose.Schema(
       trim: true,
     },
   },
-  { _id: false }
+  { _id: false },
 );
 
 // ==========================================
@@ -203,7 +203,7 @@ const paymentSchema = new mongoose.Schema(
       verify_sign_sha2: String,
     },
   },
-  { _id: false }
+  { _id: false },
 );
 
 // ==========================================
@@ -262,7 +262,7 @@ const couponAppliedSchema = new mongoose.Schema(
       default: Date.now,
     },
   },
-  { _id: false }
+  { _id: false },
 );
 
 // ==========================================
@@ -299,7 +299,7 @@ const orderStatusTimelineSchema = new mongoose.Schema(
       default: Date.now,
     },
   },
-  { _id: false }
+  { _id: false },
 );
 
 // ==========================================
@@ -548,10 +548,8 @@ const orderSchema = new mongoose.Schema(
     toObject: {
       virtuals: true,
     },
-  }
+  },
 );
-
-
 
 // ==========================================
 // VIRTUALS
@@ -562,15 +560,15 @@ orderSchema.virtual("totalItems").get(function () {
 
 orderSchema.virtual("totalDiscount").get(function () {
   let total = 0;
-  
+
   if (this.couponDiscount) {
     total += this.couponDiscount;
   }
-  
+
   if (this.additionalDiscount) {
     total += this.additionalDiscount;
   }
-  
+
   return total;
 });
 
@@ -585,10 +583,12 @@ orderSchema.virtual("summary").get(function () {
     total: this.total,
     orderStatus: this.orderStatus,
     paymentStatus: this.payment.status,
-    couponApplied: this.couponApplied ? {
-      code: this.couponApplied.code,
-      discountAmount: this.couponApplied.discountAmount,
-    } : null,
+    couponApplied: this.couponApplied
+      ? {
+          code: this.couponApplied.code,
+          discountAmount: this.couponApplied.discountAmount,
+        }
+      : null,
   };
 });
 
@@ -603,7 +603,9 @@ orderSchema.pre("save", async function () {
     const year = date.getFullYear().toString().slice(-2);
     const month = (date.getMonth() + 1).toString().padStart(2, "0");
     const day = date.getDate().toString().padStart(2, "0");
-    const random = Math.floor(Math.random() * 10000).toString().padStart(4, "0");
+    const random = Math.floor(Math.random() * 10000)
+      .toString()
+      .padStart(4, "0");
 
     this.orderId = `ORD${year}${month}${day}${random}`;
   }
@@ -720,7 +722,7 @@ orderSchema.statics.getOrderStats = async function (startDate, endDate) {
 orderSchema.statics.getCouponStats = async function (couponId) {
   const stats = await this.aggregate([
     { $match: { "couponApplied.couponId": mongoose.Types.ObjectId(couponId) } },
-    
+
     {
       $group: {
         _id: "$couponApplied.code",
@@ -738,7 +740,11 @@ orderSchema.statics.getCouponStats = async function (couponId) {
 // ==========================================
 // INSTANCE METHODS
 // ==========================================
-orderSchema.methods.updateStatus = async function (newStatus, note = "", updatedBy = "system") {
+orderSchema.methods.updateStatus = async function (
+  newStatus,
+  note = "",
+  updatedBy = "system",
+) {
   const oldStatus = this.orderStatus;
 
   this.orderStatus = newStatus;
@@ -770,7 +776,11 @@ orderSchema.methods.updateStatus = async function (newStatus, note = "", updated
   };
 };
 
-orderSchema.methods.addTracking = async function (courier, trackingNumber, trackingUrl = "") {
+orderSchema.methods.addTracking = async function (
+  courier,
+  trackingNumber,
+  trackingUrl = "",
+) {
   this.trackingInfo = {
     courier,
     trackingNumber,
@@ -804,11 +814,13 @@ orderSchema.methods.getDetailedSummary = function () {
     pricing: {
       subtotal: this.subtotal,
       discount: this.totalDiscount,
-      couponApplied: this.couponApplied ? {
-        code: this.couponApplied.code,
-        name: this.couponApplied.name,
-        discountAmount: this.couponApplied.discountAmount,
-      } : null,
+      couponApplied: this.couponApplied
+        ? {
+            code: this.couponApplied.code,
+            name: this.couponApplied.name,
+            discountAmount: this.couponApplied.discountAmount,
+          }
+        : null,
       tax: this.tax,
       shipping: this.shippingCost,
       total: this.total,
@@ -832,16 +844,17 @@ orderSchema.methods.removeCoupon = async function () {
   }
 
   const removedCoupon = this.couponApplied;
-  
+
   this.couponApplied = null;
   this.couponDiscount = 0;
   this.couponCode = null;
-  
+
   // Recalculate total
-  this.total = this.subtotal + this.shippingCost + this.tax - this.additionalDiscount;
-  
+  this.total =
+    this.subtotal + this.shippingCost + this.tax - this.additionalDiscount;
+
   await this.save();
-  
+
   return {
     success: true,
     message: "Coupon removed successfully",
@@ -850,7 +863,10 @@ orderSchema.methods.removeCoupon = async function () {
 };
 
 // Apply coupon to existing order (admin only)
-orderSchema.methods.applyCouponToOrder = async function (coupon, discountAmount) {
+orderSchema.methods.applyCouponToOrder = async function (
+  coupon,
+  discountAmount,
+) {
   this.couponApplied = {
     couponId: coupon._id,
     code: coupon.code,
@@ -862,15 +878,20 @@ orderSchema.methods.applyCouponToOrder = async function (coupon, discountAmount)
     maxDiscount: coupon.maxDiscount,
     appliedAt: new Date(),
   };
-  
+
   this.couponDiscount = discountAmount;
   this.couponCode = coupon.code;
-  
+
   // Recalculate total
-  this.total = this.subtotal + this.shippingCost + this.tax - this.couponDiscount - this.additionalDiscount;
-  
+  this.total =
+    this.subtotal +
+    this.shippingCost +
+    this.tax -
+    this.couponDiscount -
+    this.additionalDiscount;
+
   await this.save();
-  
+
   return this.couponApplied;
 };
 
