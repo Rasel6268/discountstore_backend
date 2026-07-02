@@ -6,7 +6,7 @@ const AdminVerify = require("../middleware/AdminVerify");
 
 // Create a new order
 
-router.post("/cod",verifyToken,createOrder);
+router.post("/cod",createOrder);
 router.get("/allorder", getAllOrders);
 router.get("/:orderId",verifyToken, getOrderById);
 router.get("/myorder/:id",verifyToken,getOrdersById);
