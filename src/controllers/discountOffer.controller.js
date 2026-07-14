@@ -4,7 +4,8 @@ const {
   getDiscountOfferById,
   updateDiscountOffer,
   deleteDiscountOffer,
-  getActiveDiscounts
+  getActiveDiscounts,
+  updateDiscountStatus
 } = require("../services/discountOffer.service");
 
 // Create a new discount offer
@@ -82,7 +83,9 @@ exports.getDiscountController = async (req, res) => {
 exports.getDiscountByIdController = async (req, res) => {
   try {
     const { id } = req.params;
+    
     const discount = await getDiscountOfferById(id);
+    console.log(discount)
     
     if (!discount) {
       return res.status(404).json({
@@ -111,7 +114,6 @@ exports.updateDiscountController = async (req, res) => {
   try {
     const { id } = req.params;
     const updateData = req.body;
-    
     const discount = await updateDiscountOffer(id, updateData);
     
     if (!discount) {
@@ -141,6 +143,32 @@ exports.updateDiscountController = async (req, res) => {
       success: false,
       message: "Failed to update discount offer",
       error: error.message
+    });
+  }
+};
+exports.updateDiscountStatusController = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const result = await updateDiscountStatus(id, req.body);
+
+    if (!result) {
+      return res.status(404).json({
+        success: false,
+        message: "Discount not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Discount status updated successfully",
+      data: result,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Failed to update discount status",
+      error: error.message,
     });
   }
 };

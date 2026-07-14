@@ -11,24 +11,29 @@ exports.createDiscountOffer = async (data) => {
         throw new Error("Selected coupon does not exist");
       }
     }
-    
+
     // Check for overlapping discounts
     const overlapping = await Discount.findOne({
       coupon: data.coupon,
-      status: { $ne: 'expired' },
+      status: { $ne: "expired" },
       $or: [
-        { startDate: { $lte: data.endDate }, endDate: { $gte: data.startDate } }
-      ]
+        {
+          startDate: { $lte: data.endDate },
+          endDate: { $gte: data.startDate },
+        },
+      ],
     });
-    
+
     if (overlapping) {
-      throw new Error("A discount with this coupon already exists in the date range");
+      throw new Error(
+        "A discount with this coupon already exists in the date range",
+      );
     }
-    
+
     const discount = new Discount(data);
     await discount.save();
-    await discount.populate('coupon', 'code type value minPurchase userGroups');
-    
+    await discount.populate("coupon", "code type value minPurchase userGroups");
+
     return discount;
   } catch (error) {
     throw error;
@@ -39,37 +44,34 @@ exports.createDiscountOffer = async (data) => {
 exports.getDiscountOffers = async (filters = {}, page = 1, limit = 10) => {
   try {
     const skip = (page - 1) * limit;
-    
+
     const query = {};
     if (filters.status) query.status = filters.status;
     if (filters.offerType) query.offerType = filters.offerType;
-    
+
     // Add date filters for auto-expiry
     const now = new Date();
-    query.$or = [
-      { endDate: { $gte: now } },
-      { status: { $ne: 'expired' } }
-    ];
-    
+    query.$or = [{ endDate: { $gte: now } }, { status: { $ne: "expired" } }];
+
     const [discounts, total] = await Promise.all([
       Discount.find(query)
-        .populate('coupon', 'code type value minPurchase userGroups')
+        .populate("coupon", "code type value minPurchase userGroups")
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
         .lean(),
-      Discount.countDocuments(query)
+      Discount.countDocuments(query),
     ]);
-    
+
     // Update expired status
     await Discount.updateMany(
-      { endDate: { $lt: now }, status: { $ne: 'expired' } },
-      { status: 'expired' }
+      { endDate: { $lt: now }, status: { $ne: "expired" } },
+      { status: "expired" },
     );
-    
+
     return {
       discounts,
-      total
+      total,
     };
   } catch (error) {
     throw error;
@@ -79,20 +81,21 @@ exports.getDiscountOffers = async (filters = {}, page = 1, limit = 10) => {
 // Get a single discount offer by ID
 exports.getDiscountOfferById = async (id) => {
   try {
-    const discount = await Discount.findById(id)
-      .populate('coupon', 'code type value minPurchase userGroups usageLimit usedCount');
-    
+    const discount = await Discount.findById(id).populate(
+      "coupon",
+      "code type value minPurchase userGroups usageLimit usedCount",
+    );
+
     if (!discount) {
       return null;
     }
-    
+
     // Update status if expired
     const now = new Date();
-    if (discount.endDate < now && discount.status !== 'expired') {
-      discount.status = 'expired';
+    if (discount.endDate < now && discount.status !== "expired") {
+      discount.status = "expired";
       await discount.save();
     }
-    
     return discount;
   } catch (error) {
     throw error;
@@ -103,16 +106,16 @@ exports.getDiscountOfferById = async (id) => {
 exports.updateDiscountOffer = async (id, updateData) => {
   try {
     const discount = await Discount.findById(id);
-    
+
     if (!discount) {
       return null;
     }
-    
+
     // Prevent updating expired discounts
-    if (discount.status === 'expired') {
+    if (discount.status === "expired") {
       throw new Error("Cannot update an expired discount");
     }
-    
+
     // Check coupon validity if changing
     if (updateData.coupon && updateData.coupon !== discount.coupon) {
       const couponExists = await Coupon.findById(updateData.coupon);
@@ -120,12 +123,28 @@ exports.updateDiscountOffer = async (id, updateData) => {
         throw new Error("Selected coupon does not exist");
       }
     }
-    
+
     Object.assign(discount, updateData);
     await discount.save();
-    await discount.populate('coupon', 'code type value minPurchase userGroups');
-    
+    await discount.populate("coupon", "code type value minPurchase userGroups");
+
     return discount;
+  } catch (error) {
+    throw error;
+  }
+};
+exports.updateDiscountStatus = async (id, status) => {
+  try {
+    const updatedDiscount = await Discount.findByIdAndUpdate(
+      id,
+      status,
+      {
+        after: true,
+        runValidators: true,
+      }
+    );
+
+    return updatedDiscount;
   } catch (error) {
     throw error;
   }
@@ -145,31 +164,17 @@ exports.deleteDiscountOffer = async (id) => {
 exports.getActiveDiscounts = async () => {
   try {
     const now = new Date();
-    
+
     const discounts = await Discount.find({
-      status: 'active',
+      status: "active",
       startDate: { $lte: now },
-      endDate: { $gte: now }
+      endDate: { $gte: now },
     })
-      .populate('coupon', 'code type value minPurchase userGroups')
+      .populate("coupon", "code type value minPurchase userGroups")
       .sort({ endDate: 1 })
       .lean();
-    
-    return discounts;
-  } catch (error) {
-    throw error;
-  }
-};
 
-// Bulk update expired discounts (cron job)
-exports.bulkUpdateExpiredDiscounts = async () => {
-  try {
-    const now = new Date();
-    const result = await Discount.updateMany(
-      { endDate: { $lt: now }, status: { $ne: 'expired' } },
-      { status: 'expired' }
-    );
-    return result;
+    return discounts;
   } catch (error) {
     throw error;
   }
