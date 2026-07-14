@@ -96,7 +96,10 @@ const productSchema = new mongoose.Schema(
       unique: true,
       index: true,
     },
-
+    shortDescription: {
+      type: String,
+      required: true,
+    },
     description: {
       type: String,
       required: true,
@@ -210,9 +213,8 @@ const productSchema = new mongoose.Schema(
     isFeatured: { type: Boolean, default: false },
     isPublished: { type: Boolean, default: false },
     isFreeShipping: { type: Boolean, default: false },
-    isBest:{ type: Boolean, default: false },
-    isPremium:{ type: Boolean, default: false },
-
+    isBest: { type: Boolean, default: false },
+    isPremium: { type: Boolean, default: false },
 
     status: {
       type: String,
