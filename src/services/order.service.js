@@ -149,11 +149,9 @@ const createOrderSRV = async (orderData) => {
           }
         : null,
       totalPrice:
-        item.totalPrice ||
-        (item.price +
-          (item.size?.extraPrice || 0) +
-          (item.color?.extraPrice || 0)) *
-          item.quantity,
+        item.totalPrice !== undefined && item.totalPrice !== null
+          ? item.totalPrice
+          : item.price * item.quantity,
     }));
 
     const orderId = generateOrderId();

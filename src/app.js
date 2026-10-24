@@ -62,6 +62,7 @@ app.use('/orders', require('./routers/order.route'));
 app.use('/colors', colorRoutes);
 app.use("/sizes",require('./routers/size.route'))
 app.use('/discounts',require('./routers/discountOffer.route'))
+app.use('/upload', require('./routers/upload.route'));
 
 // =======================
 // ERROR HANDLING
