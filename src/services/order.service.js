@@ -112,6 +112,19 @@ const updateInventory = async (productUpdates) => {
 
 const createOrderSRV = async (orderData) => {
   try {
+    if (
+      !orderData.items ||
+      !Array.isArray(orderData.items) ||
+      orderData.items.length === 0
+    ) {
+      return {
+        success: false,
+        message: "Order must contain at least one item",
+        statusCode: 400,
+        data: null,
+      };
+    }
+
     const shippingCost =
       orderData.shippingCost || (orderData.shippingArea === "dhaka" ? 60 : 130);
 

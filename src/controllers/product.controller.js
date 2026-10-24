@@ -69,9 +69,15 @@ const updateProduct = async (req, res) => {
     if (result.success) {
       return res.status(200).json(result);
     } else {
-      return;
+      return res.status(result.statusCode || 400).json(result);
     }
-  } catch (error) {}
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal server error",
+      data: null,
+    });
+  }
 };
 
 const deleteProduct = async (req, res) => {

@@ -194,7 +194,7 @@ const updateSizeGroupService = async (id, updateData) => {
     }
 
     const updatedGroup = await Size.findByIdAndUpdate(id, updateData, {
-      new: true,
+      returnDocument: "after",
       runValidators: true,
     });
 

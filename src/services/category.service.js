@@ -510,7 +510,7 @@ class CategoryService {
       const category = await Category.findByIdAndUpdate(
         id,
         filtered,
-        { new: true, runValidators: true }
+        { returnDocument: "after", runValidators: true }
       );
 
       if (!category) {

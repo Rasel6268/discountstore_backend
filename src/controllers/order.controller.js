@@ -15,6 +15,14 @@ const {
  */
 const createOrder = async (req, res) => {
   try {
+    const { items } = req.body;
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Order must contain at least one item",
+        data: null,
+      });
+    }
 
     const result = await createOrderSRV(req.body);
     

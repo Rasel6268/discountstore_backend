@@ -98,7 +98,8 @@ const productSchema = new mongoose.Schema(
     },
     shortDescription: {
       type: String,
-      required: true,
+      default: "",
+      trim: true,
     },
     description: {
       type: String,

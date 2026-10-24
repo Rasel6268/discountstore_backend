@@ -387,11 +387,18 @@ const updateProductSRV = async (id, body) => {
       );
     }
 
+    // Ensure shortDescription is safe
+    if (body.shortDescription === undefined && product.shortDescription) {
+      body.shortDescription = product.shortDescription;
+    } else if (body.shortDescription === undefined || body.shortDescription === null) {
+      body.shortDescription = "";
+    }
+
     // Update product
     const updatedProduct = await Product.findByIdAndUpdate(
       id,
       { ...body },
-      { new: true, runValidators: true },
+      { returnDocument: "after", runValidators: true },
     );
 
     return {

@@ -78,7 +78,7 @@ const getBrandByIdServices = async (id) => {
 const updateBrand = async (id, data) => {
   try {
     const updatedBrand = await Brand.findByIdAndUpdate(id, data, {
-      new: true,
+      returnDocument: "after",
       runValidators: true,
     });
 

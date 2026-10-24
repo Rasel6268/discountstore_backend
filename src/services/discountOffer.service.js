@@ -139,7 +139,7 @@ exports.updateDiscountStatus = async (id, status) => {
       id,
       status,
       {
-        after: true,
+        returnDocument: "after",
         runValidators: true,
       }
     );
