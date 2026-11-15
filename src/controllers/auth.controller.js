@@ -5,6 +5,7 @@ const {
   profileService,
   authMeService,
   makeAdminService,
+  deleteUserService,
 } = require("../services/auth.service");
 
 /**
@@ -57,8 +58,10 @@ const login = async (req, res) => {
     });
 
     return res.status(200).json({
+      success: true,
       message: "Login successful",
       user: result.user,
+      token: result.token,
     });
   } catch (err) {
     console.error(err);
@@ -153,6 +156,19 @@ const getAllUsers = async (req, res) => {
   }
 };
 
+const deleteUserController = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const result = await deleteUserService(userId);
+    if (!result.success) {
+      return res.status(404).json(result);
+    }
+    return res.status(200).json(result);
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message || "Server error" });
+  }
+};
+
 module.exports = {
   register,
   login,
@@ -161,4 +177,5 @@ module.exports = {
   editProfile,
   getAllUsers,
   makeAdminController,
+  deleteUserController,
 };

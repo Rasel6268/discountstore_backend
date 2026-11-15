@@ -189,8 +189,15 @@ const productSchema = new mongoose.Schema(
     images: [
       {
         url: { type: String, required: true },
+        key: { type: String, default: "" },
+        fileId: { type: String, default: "" },
         alt: { type: String, default: "" },
         isPrimary: { type: Boolean, default: false },
+        variants: {
+          thumbnail: { type: String, default: "" },
+          medium: { type: String, default: "" },
+          large: { type: String, default: "" },
+        },
       },
     ],
 

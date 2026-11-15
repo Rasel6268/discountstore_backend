@@ -1,10 +1,13 @@
 const express = require('express');
 const upload = require('../middleware/upload.middleware');
 const uploadController = require('../controllers/upload.controller');
+const verifyToken = require('../middleware/verifyToken');
+const AdminVerify = require('../middleware/AdminVerify');
+const { uploadRateLimiter } = require('../middleware/rateLimiter');
 
 const router = express.Router();
 
-// Helper middleware to accept any field name ('image', 'file', 'images', etc.)
+// Helper middleware to accept any field name ('image', 'file', 'images', 'files', etc.)
 const handleAnyFile = (req, res, next) => {
   upload.any()(req, res, (err) => {
     if (err) {
@@ -20,16 +23,80 @@ const handleAnyFile = (req, res, next) => {
   });
 };
 
-// GET /upload/auth - generate client-side auth tokens
+// ==========================================
+// PUBLIC / CONFIG ENDPOINTS
+// ==========================================
+// GET /config - Public configuration for image uploads & formats
+router.get('/config', uploadController.getConfig);
+
+// GET /auth - Legacy compatibility for client auth tokens
 router.get('/auth', uploadController.getAuthParams);
 
-// POST /upload - upload single image
-router.post('/', handleAnyFile, uploadController.uploadSingle);
+// ==========================================
+// SECURE UPLOAD ENDPOINTS (ADMIN ONLY)
+// ==========================================
+// POST / or POST /upload - Single image upload
+router.post(
+  '/',
+  verifyToken,
+  AdminVerify,
+  uploadRateLimiter,
+  handleAnyFile,
+  uploadController.uploadSingle
+);
 
-// POST /upload/multiple - upload multiple images (up to 10)
-router.post('/multiple', handleAnyFile, uploadController.uploadMultiple);
+router.post(
+  '/upload',
+  verifyToken,
+  AdminVerify,
+  uploadRateLimiter,
+  handleAnyFile,
+  uploadController.uploadSingle
+);
 
-// DELETE /upload/:fileId - delete an uploaded file
-router.delete('/:fileId', uploadController.deleteFile);
+// POST /multiple or POST /upload-multiple - Multiple images upload
+router.post(
+  '/multiple',
+  verifyToken,
+  AdminVerify,
+  uploadRateLimiter,
+  handleAnyFile,
+  uploadController.uploadMultiple
+);
+
+router.post(
+  '/upload-multiple',
+  verifyToken,
+  AdminVerify,
+  uploadRateLimiter,
+  handleAnyFile,
+  uploadController.uploadMultiple
+);
+
+// ==========================================
+// SECURE DELETE ENDPOINTS (ADMIN ONLY)
+// ==========================================
+// DELETE with query/body ?key=products/123.webp
+router.delete(
+  '/',
+  verifyToken,
+  AdminVerify,
+  uploadController.deleteFile
+);
+
+// DELETE with key / fileId in params (supports path with slashes like /products/123.webp)
+router.delete(
+  '{/*fileId}',
+  verifyToken,
+  AdminVerify,
+  uploadController.deleteFile
+);
+
+router.delete(
+  '/:fileId',
+  verifyToken,
+  AdminVerify,
+  uploadController.deleteFile
+);
 
 module.exports = router;

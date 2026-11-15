@@ -1,138 +1,214 @@
-const imagekit = require('../config/imagekit');
+const imageService = require('../services/image.service');
+const r2Service = require('../services/r2.service');
+
+// Optional ImageKit fallback for legacy fileId deletion if credentials still exist
+let legacyImageKit = null;
+try {
+  legacyImageKit = require('../config/imagekit');
+} catch (e) {
+  // ImageKit module might be unconfigured or removed later
+}
 
 class UploadController {
-  // Generate authentication parameters for client-side uploads if needed
-  async getAuthParams(req, res) {
+  /**
+   * GET /upload/config or GET /api/images/config
+   * Returns public configuration for uploads
+   */
+  async getConfig(req, res) {
     try {
-      const authenticationParameters = imagekit.getAuthenticationParameters();
-      res.status(200).json({
+      const config = imageService.getConfig();
+      return res.status(200).json({
         success: true,
-        ...authenticationParameters,
-        publicKey: process.env.IMAGEKIT_PUBLIC_KEY,
-        urlEndpoint: process.env.IMAGEKIT_URL_ENDPOINT,
+        data: config,
       });
     } catch (error) {
-      console.error('Error getting ImageKit auth params:', error);
-      res.status(500).json({
+      console.error('[UploadController.getConfig] Error:', error);
+      return res.status(500).json({
         success: false,
-        message: 'Failed to generate authentication parameters',
+        message: 'Failed to retrieve image configuration',
         error: error.message,
       });
     }
   }
 
-  // Upload a single image
+  /**
+   * POST /upload or POST /api/images/upload
+   * Upload and optimize a single image to Cloudflare R2
+   */
   async uploadSingle(req, res) {
     try {
-      if (!req.file) {
+      const file = req.file || (req.files && req.files[0]);
+
+      if (!file) {
         return res.status(400).json({
           success: false,
-          message: 'No image file provided',
+          message: 'No image file provided. Please attach an image file.',
         });
       }
 
-      const folder = req.body.folder || '/products';
-      const fileName = `${Date.now()}-${req.file.originalname.replace(/\s+/g, '_')}`;
+      const folder = req.body.folder || 'products';
+      const alt = req.body.alt || '';
 
-      const response = await imagekit.upload({
-        file: req.file.buffer.toString('base64'),
-        fileName: fileName,
-        folder: folder,
-        useUniqueFileName: true,
+      const uploadedImage = await imageService.processAndUploadImage(file.buffer, {
+        folder,
+        originalName: file.originalname,
+        alt,
       });
 
-      res.status(200).json({
+      return res.status(200).json({
         success: true,
-        message: 'Image uploaded successfully',
-        data: {
-          url: response.url,
-          fileId: response.fileId,
-          name: response.name,
-          size: response.size,
-          filePath: response.filePath,
-          thumbnailUrl: response.thumbnailUrl,
-        },
+        message: 'Image processed, optimized, and uploaded to Cloudflare R2 successfully',
+        data: uploadedImage,
+        // Root-level fields for maximum client compatibility
+        url: uploadedImage.url,
+        key: uploadedImage.key,
+        fileId: uploadedImage.fileId,
+        variants: uploadedImage.variants,
+        thumbnailUrl: uploadedImage.thumbnailUrl,
       });
     } catch (error) {
-      console.error('Error uploading image to ImageKit:', error);
-      res.status(500).json({
+      console.error('[UploadController.uploadSingle] Error:', error);
+      return res.status(error.message?.includes('Unsupported') || error.message?.includes('Invalid') ? 400 : 500).json({
         success: false,
-        message: 'Failed to upload image',
+        message: error.message || 'Failed to process and upload image',
         error: error.message,
       });
     }
   }
 
-  // Upload multiple images
+  /**
+   * POST /upload/multiple or POST /api/images/upload-multiple
+   * Upload and optimize multiple images to Cloudflare R2
+   */
   async uploadMultiple(req, res) {
     try {
-      if (!req.files || req.files.length === 0) {
+      const files = req.files;
+
+      if (!files || !Array.isArray(files) || files.length === 0) {
         return res.status(400).json({
           success: false,
-          message: 'No image files provided',
+          message: 'No image files provided. Please select at least one image.',
         });
       }
 
-      const folder = req.body.folder || '/products';
+      const folder = req.body.folder || 'products';
 
-      const uploadPromises = req.files.map((file) => {
-        const fileName = `${Date.now()}-${file.originalname.replace(/\s+/g, '_')}`;
-        return imagekit.upload({
-          file: file.buffer.toString('base64'),
-          fileName: fileName,
-          folder: folder,
-          useUniqueFileName: true,
-        });
+      const uploadedList = await imageService.processAndUploadMultiple(files, {
+        folder,
       });
 
-      const responses = await Promise.all(uploadPromises);
-
-      const uploadedData = responses.map((resItem) => ({
-        url: resItem.url,
-        fileId: resItem.fileId,
-        name: resItem.name,
-        size: resItem.size,
-        filePath: resItem.filePath,
-        thumbnailUrl: resItem.thumbnailUrl,
-      }));
-
-      res.status(200).json({
+      return res.status(200).json({
         success: true,
-        message: 'Images uploaded successfully',
-        data: uploadedData,
+        message: `${uploadedList.length} image(s) processed and uploaded to Cloudflare R2 successfully`,
+        data: uploadedList,
       });
     } catch (error) {
-      console.error('Error uploading multiple images to ImageKit:', error);
-      res.status(500).json({
+      console.error('[UploadController.uploadMultiple] Error:', error);
+      return res.status(error.message?.includes('Unsupported') || error.message?.includes('Invalid') ? 400 : 500).json({
         success: false,
-        message: 'Failed to upload images',
+        message: error.message || 'Failed to upload images',
         error: error.message,
       });
     }
   }
 
-  // Delete image by fileId
+  /**
+   * DELETE /upload/:fileId or DELETE /api/images/:key
+   * Delete image and all its variants from Cloudflare R2
+   */
   async deleteFile(req, res) {
     try {
-      const { fileId } = req.params;
-      if (!fileId) {
+      // Key can be in params (fileId or key or wildcard), query, or body
+      let keyOrId = req.params.fileId || req.params.key || req.params[0] || req.query.key || req.body.key;
+
+      if (!keyOrId) {
         return res.status(400).json({
           success: false,
-          message: 'fileId is required',
+          message: 'Image key or fileId is required for deletion',
         });
       }
 
-      await imagekit.deleteFile(fileId);
+      // If URL decoded is needed
+      try {
+        keyOrId = decodeURIComponent(keyOrId);
+      } catch (e) {}
 
-      res.status(200).json({
+      // Check if it's an R2 key or URL
+      const isR2 =
+        keyOrId.includes('/') ||
+        keyOrId.endsWith('.webp') ||
+        (r2Service.publicUrl && keyOrId.includes(r2Service.publicUrl));
+
+      if (isR2) {
+        const force = req.query.force === 'true' || req.body.force === true;
+        const result = await imageService.deleteImageWithVariants(keyOrId, { force });
+
+        if (!result.success) {
+          return res.status(400).json({
+            success: false,
+            message: result.message,
+          });
+        }
+
+        return res.status(200).json({
+          success: true,
+          message: 'Image and associated variants deleted from Cloudflare R2',
+          data: {
+            deletedKeys: result.deletedKeys,
+          },
+        });
+      }
+
+      // Legacy ImageKit fallback if an ImageKit fileId was passed (e.g. 64-char ID without slashes)
+      if (legacyImageKit && typeof legacyImageKit.deleteFile === 'function') {
+        try {
+          await legacyImageKit.deleteFile(keyOrId);
+          return res.status(200).json({
+            success: true,
+            message: 'Image deleted from ImageKit (legacy)',
+          });
+        } catch (ikErr) {
+          console.warn('[UploadController] ImageKit deletion error:', ikErr.message);
+        }
+      }
+
+      return res.status(200).json({
         success: true,
-        message: 'Image deleted successfully',
+        message: 'Image deletion handled successfully',
       });
     } catch (error) {
-      console.error('Error deleting image from ImageKit:', error);
-      res.status(500).json({
+      console.error('[UploadController.deleteFile] Error:', error);
+      return res.status(error.message?.includes('unauthorized') || error.message?.includes('Invalid') ? 403 : 500).json({
         success: false,
-        message: 'Failed to delete image',
+        message: error.message || 'Failed to delete image',
+        error: error.message,
+      });
+    }
+  }
+
+  /**
+   * GET /upload/auth (Legacy compatibility)
+   */
+  async getAuthParams(req, res) {
+    try {
+      if (legacyImageKit && typeof legacyImageKit.getAuthenticationParameters === 'function') {
+        const authenticationParameters = legacyImageKit.getAuthenticationParameters();
+        return res.status(200).json({
+          success: true,
+          ...authenticationParameters,
+          publicKey: process.env.IMAGEKIT_PUBLIC_KEY || '',
+          urlEndpoint: process.env.IMAGEKIT_URL_ENDPOINT || '',
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: 'R2 does not require client authentication parameters; uploads go through secure backend API.',
+      });
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to generate authentication parameters',
         error: error.message,
       });
     }

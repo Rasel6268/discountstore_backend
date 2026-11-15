@@ -6,8 +6,10 @@ const {
   updateOrderStatusSRV,
   updatePaymentStatusSRV,
   cancelOrderSRV,
+  changeOrderSRV,
   getAllOrdersSRV,
-  getOrdersByUserIdSRV
+  getOrdersByUserIdSRV,
+  trackOrderSRV,
 } = require("../services/order.service");
 
 /**
@@ -68,7 +70,14 @@ const getOrderById = async (req, res) => {
 };
 const getOrdersById = async (req, res) => {
   try {
-    const result = await getOrdersByUserIdSRV(req.params.id);
+    const requestedId = req.params.id;
+    const authUser = req.user;
+    const targetUserId =
+      requestedId && requestedId !== "undefined" && requestedId !== "null" && requestedId !== "me"
+        ? requestedId
+        : authUser?._id || authUser?.id;
+
+    const result = await getOrdersByUserIdSRV(targetUserId, authUser);
 
     if (!result.success) {
       return res.status(404).json(result);
@@ -76,6 +85,7 @@ const getOrdersById = async (req, res) => {
 
     return res.status(200).json(result);
   } catch (error) {
+    console.error("getOrdersById controller error:", error);
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
@@ -182,8 +192,10 @@ const updatePaymentStatus = async (req, res) => {
  */
 const cancelOrder = async (req, res) => {
   try {
-    const { orderId } = req.params;
-    const { reason, cancelledBy } = req.body;
+    const orderId = (req.params && req.params.orderId) || (req.body && req.body.orderId);
+    const body = req.body || {};
+    const reason = body.reason;
+    const cancelledBy = body.cancelledBy || "customer";
     
     const result = await cancelOrderSRV(orderId, reason, cancelledBy || "customer");
     
@@ -197,6 +209,31 @@ const cancelOrder = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: error.message
+    });
+  }
+};
+
+/**
+ * Change order details (shipping address, area, notes) before processing
+ */
+const changeOrder = async (req, res) => {
+  try {
+    const orderId = (req.params && req.params.orderId) || (req.body && req.body.orderId);
+    const updateData = req.body || {};
+    const updatedBy = (req.user && req.user.name) || updateData.updatedBy || "customer";
+
+    const result = await changeOrderSRV(orderId, updateData, updatedBy);
+
+    return res.status(result.statusCode).json({
+      success: result.success,
+      message: result.message,
+      data: result.data,
+    });
+  } catch (error) {
+    console.error("Change order error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to update order details",
     });
   }
 };
@@ -224,7 +261,7 @@ const getAllOrders = async (req, res) => {
         .skip(skip)
         .limit(parseInt(limit))
         .populate("user.userId", "name email phone")
-        .populate("items.productId", "name images"),
+        .populate("items.productId", "name images sku brand category"),
       Order.countDocuments(query)
     ]);
     
@@ -247,6 +284,34 @@ const getAllOrders = async (req, res) => {
   }
 };
 
+/**
+ * Public Order Tracking Controller
+ */
+const trackOrder = async (req, res) => {
+  try {
+    const orderId = (req.params && req.params.orderId) || (req.query && req.query.orderId) || (req.body && req.body.orderId) || null;
+    const phone = (req.query && req.query.phone) || (req.body && req.body.phone) || null;
+
+    if (!orderId) {
+      return res.status(400).json({
+        success: false,
+        message: "Order ID is required to track your order.",
+        data: null,
+      });
+    }
+
+    const result = await trackOrderSRV(orderId, phone);
+    return res.status(result.statusCode || 200).json(result);
+  } catch (error) {
+    console.error("Track order controller error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal server error",
+      data: null,
+    });
+  }
+};
+
 module.exports = {
   createOrder,
   getOrderById,
@@ -255,5 +320,7 @@ module.exports = {
   updateOrderStatus,
   updatePaymentStatus,
   cancelOrder,
-  getOrdersById
+  changeOrder,
+  getOrdersById,
+  trackOrder,
 };

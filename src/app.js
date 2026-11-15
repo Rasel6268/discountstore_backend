@@ -54,6 +54,7 @@ app.get('/', (req, res) => {
 // ROUTES
 // =======================
 app.use('/auth', require('./routers/auth.route'));
+app.use('/users', require('./routers/auth.route'));
 app.use('/categories', require('./routers/category.route'));
 app.use('/brands', require('./routers/brand.route'));
 app.use('/products', require('./routers/product.route'));
@@ -63,6 +64,7 @@ app.use('/colors', colorRoutes);
 app.use("/sizes",require('./routers/size.route'))
 app.use('/discounts',require('./routers/discountOffer.route'))
 app.use('/upload', require('./routers/upload.route'));
+app.use('/api/images', require('./routers/upload.route'));
 
 // =======================
 // ERROR HANDLING

@@ -16,11 +16,11 @@ const AdminVerify = require("../middleware/AdminVerify");
 
 const router = express.Router();
 
-router.post("/", createProduct,verifyToken,AdminVerify);
+router.post("/", verifyToken, AdminVerify, createProduct);
 router.get("/", getAllProduct);
 router.get("/:id", getProductById);
-router.put("/:id", updateProduct,verifyToken,AdminVerify);
-router.delete("/:id",verifyToken,AdminVerify ,deleteProduct);
+router.put("/:id", verifyToken, AdminVerify, updateProduct);
+router.delete("/:id", verifyToken, AdminVerify, deleteProduct);
 router.post('/:id/sizes', addSizeToProduct);
 router.get('/:id/sizes', getProductSizes);
 router.put('/:id/sizes/:sizeName/quantity', updateSizeQuantity);

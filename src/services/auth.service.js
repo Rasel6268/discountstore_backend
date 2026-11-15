@@ -120,6 +120,18 @@ const makeAdminService = async (userId, adminStatus) => {
     return { success: false, message: "Error updating admin status", error };
   }
 };
+const deleteUserService = async (userId) => {
+  try {
+    const user = await User.findByIdAndDelete(userId);
+    if (!user) {
+      return { success: false, message: "User not found" };
+    }
+    return { success: true, message: "User deleted successfully" };
+  } catch (error) {
+    return { success: false, message: "Error deleting user", error: error.message };
+  }
+};
+
 const LogoutService = (body) => {};
 module.exports = {
   RegisterService,
@@ -128,4 +140,5 @@ module.exports = {
   profileService,
   authMeService,
   makeAdminService,
+  deleteUserService,
 };

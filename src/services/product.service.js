@@ -1,4 +1,6 @@
+const mongoose = require("mongoose");
 const Product = require("../models/Product");
+const imageService = require("./image.service");
 
 const createProductSRV = async (body) => {
   try {
@@ -267,11 +269,28 @@ const getAllProductSRV = async (filters = {}) => {
   }
 };
 
-const getProductByIdSRV = async (id) => {
+const getProductByIdSRV = async (idOrSlug) => {
   try {
-    const product = await Product.findById(id)
-      .populate("category", "name slug")
-      .populate("brand", "name slug");
+    const clean = typeof idOrSlug === "string" ? idOrSlug.replace(/\/+$/, "").trim() : idOrSlug;
+    const isObjectId = mongoose.Types.ObjectId.isValid(clean);
+    let product = null;
+
+    if (isObjectId) {
+      product = await Product.findById(clean)
+        .populate("category", "name slug")
+        .populate("brand", "name slug");
+    }
+
+    if (!product) {
+      product = await Product.findOne({
+        $or: [
+          { slug: clean },
+          { sku: clean }
+        ]
+      })
+        .populate("category", "name slug")
+        .populate("brand", "name slug");
+    }
 
     if (!product) {
       return {
@@ -394,6 +413,31 @@ const updateProductSRV = async (id, body) => {
       body.shortDescription = "";
     }
 
+    // Handle obsolete image cleanup if images are updated
+    if (Array.isArray(body.images) && Array.isArray(product.images)) {
+      const newUrlsOrKeys = new Set(
+        body.images.map((img) => img.key || img.url).filter(Boolean)
+      );
+      const removedImages = product.images.filter((img) => {
+        const identifier = img.key || img.url;
+        return identifier && !newUrlsOrKeys.has(identifier);
+      });
+
+      if (removedImages.length > 0) {
+        Promise.all(
+          removedImages.map(async (img) => {
+            try {
+              await imageService.deleteImageWithVariants(img.key || img.url, {
+                excludeProductId: id,
+              });
+            } catch (err) {
+              console.warn("[ProductService] Obsolete image cleanup warning:", err.message);
+            }
+          })
+        ).catch((err) => console.error("[ProductService] Error in image cleanup:", err));
+      }
+    }
+
     // Update product
     const updatedProduct = await Product.findByIdAndUpdate(
       id,
@@ -429,6 +473,21 @@ const deleteProductSRV = async (id) => {
         statusCode: 404,
         data: null,
       };
+    }
+
+    // Clean up associated images from storage if not referenced by other products
+    if (Array.isArray(product.images) && product.images.length > 0) {
+      Promise.all(
+        product.images.map(async (img) => {
+          try {
+            await imageService.deleteImageWithVariants(img.key || img.url, {
+              excludeProductId: id,
+            });
+          } catch (err) {
+            console.warn("[ProductService] Image cleanup on delete warning:", err.message);
+          }
+        })
+      ).catch((err) => console.error("[ProductService] Error cleaning up images on product deletion:", err));
     }
 
     return {
