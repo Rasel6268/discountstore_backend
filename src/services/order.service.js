@@ -126,7 +126,7 @@ const createOrderSRV = async (orderData) => {
     }
 
     const shippingCost =
-      orderData.shippingCost || (orderData.shippingArea === "dhaka" ? 60 : 130);
+      orderData.shippingCost || (orderData.shippingArea === "dhaka" ? 70 : 130);
 
     const inventoryValidation = await validateInventory(orderData.items);
     if (!inventoryValidation.isValid) {
@@ -708,7 +708,7 @@ const changeOrderSRV = async (orderId, updateData, updatedBy = "customer") => {
     // 2. Update shipping area (recalculating delivery fee)
     if (updateData.shippingArea && updateData.shippingArea !== order.shippingArea) {
       order.shippingArea = updateData.shippingArea;
-      const newCost = updateData.shippingArea === "dhaka" ? 60 : 130;
+      const newCost = updateData.shippingArea === "dhaka" ? 70 : 130;
       changes.push(`Shipping area: ${updateData.shippingArea} (Fee: ৳${newCost})`);
       order.shippingCost = newCost;
       order.total =
